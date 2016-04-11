@@ -5,20 +5,20 @@
 
 namespace CommonCase {
 
-    template <typename T>
-    class Box {
-    public:
-        Box(Point<T> const& lo, Point<T> const& hi);
+template <typename T>
+class Box {
+public:
+    Box(Point<T> const& lo, Point<T> const& hi);
 
-        Point<T> const& lo() const;
-        Point<T> const& hi() const;
+    Point<T> const& lo() const;
+    Point<T> const& hi() const;
 
-        void lo(Point<T> const&);
-        void hi(Point<T> const&);
+    void lo(Point<T> const&);
+    void hi(Point<T> const&);
 
-    private:
-        Point<T> _lo, _hi;
-    };
+private:
+    Point<T> _lo, _hi;
+};
 
 } // namespace CommonCase
 
