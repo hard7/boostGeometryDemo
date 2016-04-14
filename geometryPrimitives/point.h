@@ -7,6 +7,8 @@ namespace CommonCase {
 template <typename T>
 class Point {
 public:
+    typedef T type;
+
     Point(T const& x, T const& y, T const& z);
 
     T const& x() const;

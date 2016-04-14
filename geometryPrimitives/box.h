@@ -8,6 +8,7 @@ namespace CommonCase {
 template <typename T>
 class Box {
 public:
+    typedef T type;
     Box(Point<T> const& lo, Point<T> const& hi);
 
     Point<T> const& lo() const;

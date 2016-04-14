@@ -2,24 +2,42 @@
 
 #include "geometryPrimitives/point.h"
 #include "geometryPrimitives/box.h"
-
+#include "defineSharedArea.hh"
+#include <vector>
 
 using std::cout;
 using std::endl;
 
 
+struct A {
+    typedef int Type;
+};
+
+template < typename T >
+struct B {
+    B(A a) {}
+};
+
+
+
 int main() {
-    CommonCase::Point<int> p(1, 2, 3);
-//    CommonCase::Box<int> b(p, p);
+    using Box = CommonCase::Box<int>;
+    std::vector<Box> boxes = { Box({0,0,0}, {10, 10, 10}), Box({10, 0, 0}, {20, 10, 10}) };
+//    SpatialContainer sc(boxes.begin(), boxes.end());
 
-//    CommonCase::Demo_<int> d;
+//    SpatialContainer<CommonCase::Box<int> > sc = makeSpatialContainer(boxes.begin());
 
-//    b.hi(p);
+    int nums[] = {1,2,3};
 
-//    cout << b.hi()
+//    defineSharedArea(std::begin(boxes), std::end(boxes));
+//    defineSharedArea(A(), A());
 
-//    cout << "Hello, World!" << endl;
-//    model::d2::point_xy<int> p1(1, 1), p2(2, 2);
-//    cout << "distance: " << distance(p1, p2) << endl;   sadas
+    Spatial::demo();
     return 0;
 }
+
+/*
+ * «std::vector<CommonCase::Box<int> >::const_iterator {aka __gnu_cxx::__normal_iterator<const CommonCase::Box<int>*, std::vector<CommonCase::Box<int> > >}»
+ * to «SpatialContainer<int>::const_iterator {aka __gnu_cxx::__normal_iterator<const SpatialComponent<int>*, std::vector<SpatialComponent<int>, std::allocator<SpatialComponent<int> > > >}»
+ *
+ */
