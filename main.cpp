@@ -1,43 +1,28 @@
 #include <iostream>
-
-#include "geometryPrimitives/point.h"
-#include "geometryPrimitives/box.h"
-#include "defineSharedArea.hh"
+#include "point.h"
+#include "box.h"
 #include <vector>
+#include "Spatial/Container.h"
+#include "stream/point.h"
+#include "stream/box.h"
 
 using std::cout;
 using std::endl;
 
 
-struct A {
-    typedef int Type;
-};
-
-template < typename T >
-struct B {
-    B(A a) {}
-};
-
-
-
 int main() {
     using Box = CommonCase::Box<int>;
-    std::vector<Box> boxes = { Box({0,0,0}, {10, 10, 10}), Box({10, 0, 0}, {20, 10, 10}) };
-//    SpatialContainer sc(boxes.begin(), boxes.end());
+    using Point = CommonCase::Point<int>;
 
-//    SpatialContainer<CommonCase::Box<int> > sc = makeSpatialContainer(boxes.begin());
+    Point z(0, 0 ,0);
 
-    int nums[] = {1,2,3};
+    std::vector<Box> boxes = {Box(Point(0, 0 ,0), Point(10,20,30)), Box(Point(0,0,30), Point(10,20,50)) };
 
-//    defineSharedArea(std::begin(boxes), std::end(boxes));
-//    defineSharedArea(A(), A());
+    cout << "demo begin " << z << " " << boxes[0] << endl;
 
-    Spatial::demo();
-    return 0;
+    const Spatial::Container sc(boxes);
+    for(auto& box: sc) {
+//        cout << box.lo().x() << endl;
+    }
 }
 
-/*
- * «std::vector<CommonCase::Box<int> >::const_iterator {aka __gnu_cxx::__normal_iterator<const CommonCase::Box<int>*, std::vector<CommonCase::Box<int> > >}»
- * to «SpatialContainer<int>::const_iterator {aka __gnu_cxx::__normal_iterator<const SpatialComponent<int>*, std::vector<SpatialComponent<int>, std::allocator<SpatialComponent<int> > > >}»
- *
- */

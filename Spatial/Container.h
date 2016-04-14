@@ -34,28 +34,6 @@ private:
     std::shared_ptr<Impl> impl;
 };
 
-    void demo();
-
 } // namespace Spatial
-
-//----------------------------------------------------------------------------------------------------------------------
-
-#include <iostream>
-#include "box.h"
-
-inline void Spatial::demo() {
-    using Box = Component::Box;
-    using Point = CommonCase::Point<Box::type>;
-    using std::cout;
-    using std::endl;
-
-    cout << "demo begin" << endl;
-    std::vector<Component::Box> boxes = {Box(Point(1,2,3), Point(10,20,30)), Box(Point(10,20,30), Point(100,200,300)) };
-
-    const Spatial::Container sc(boxes);
-    for(auto& box: sc) {
-//        cout << box.lo().x() << endl;
-    }
-}
 
 #endif //__SPATIAL_CONTAINER_H__

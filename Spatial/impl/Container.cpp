@@ -37,10 +37,20 @@ struct Container::Impl {
 
     _implContainer container;
     const std::vector<Box> boxes;
-    bgi::rtree< Value, bgi::quadratic<20> > rtree;
+    bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
 
-    Impl(Boxes const& boxes_) : boxes(boxes_), rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())) {
-//        container.resize(boxes.size());
+    Impl(Boxes const& boxes_) : boxes(boxes_),
+            rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
+                , bgi::dynamic_quadratic(boxes_.size())) {
+//      container.resize(boxes.size());
+
+        Box query_box(Point(0, 0, 0), Point(5, 5, 5));
+        std::vector<Value> result_s;
+        rtree.query(bgi::intersects(query_box), std::back_inserter(result_s));
+
+        for(auto const& item : result_s) {
+            std::cout << "!" << std::endl;
+        }
     }
 };
 
