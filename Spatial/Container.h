@@ -9,7 +9,8 @@ namespace Spatial {
 
 class Container {
 public:
-    typedef Spatial::Component::Box Box;
+    typedef Component::Box Box;
+    typedef Component::BoxId BoxId;
 
 private:
     typedef std::vector<Spatial::Component> _implContainer;
@@ -19,6 +20,11 @@ private:
 
 public:
     Container(std::vector<Box> const& values);
+
+    Box const& getBox(BoxId boxId) const;
+    BoxId getBoxId(Box const& box) const;
+    std::vector<BoxId> getNeighbors(BoxId boxId) const;
+    std::vector<Component::OutputExchange> getOutputExchange(BoxId boxId) const;
 
     iterator begin();
     iterator end();

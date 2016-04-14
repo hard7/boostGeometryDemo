@@ -7,6 +7,8 @@
 
 namespace Spatial {
 
+class Container;
+
 class Component {
 public:
     typedef CommonCase::Point<int> Point;
@@ -25,12 +27,13 @@ public:
         std::vector<BoxId> destinations;
     };
 
-    Component();
+    Component(Container& container, BoxId boxId);
     Box const& getBox() const;
     BoxId getBoxId() const;
 
     InputExchange::vector const& getInputExchange() const;
     OutputExchange::vector const& getOutputExchange() const;
+    std::vector<BoxId> const& getNeighbor() const;
 
 private:
     class Impl;

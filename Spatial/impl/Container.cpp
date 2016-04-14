@@ -6,6 +6,8 @@
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
+#include "stream/box.h"                                 //FIXME DELETE
+
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 
@@ -41,21 +43,34 @@ struct Container::Impl {
 
     Impl(Boxes const& boxes_) : boxes(boxes_),
             rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
-                , bgi::dynamic_quadratic(boxes_.size())) {
-//      container.resize(boxes.size());
+                , bgi::dynamic_quadratic(boxes_.size())) { }
 
-        Box query_box(Point(0, 0, 0), Point(5, 5, 5));
-        std::vector<Value> result_s;
-        rtree.query(bgi::intersects(query_box), std::back_inserter(result_s));
 
-        for(auto const& item : result_s) {
-            std::cout << "!" << std::endl;
-        }
-    }
 };
 
 
-Container::Container(Boxes const& boxes) : impl(new Impl(boxes)) { }
+Container::Container(Boxes const& boxes) : impl(new Impl(boxes)) {
+    int size = impl->boxes.size();
+    impl->container.reserve(size);
+    for(int i=0; i<size; ++i) {
+        impl->container.push_back(Component(*this, i));
+    }
+}
+
+Box const& Container::getBox(BoxId boxId) const {
+    return impl->boxes.at(boxId);
+}
+
+std::vector<Container::BoxId> Container::getNeighbors(BoxId boxId) const {
+    std::vector<Impl::Value> qResult;
+    std::vector<BoxId> result;
+    Box const& target = getBox(boxId);
+    impl->rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(qResult));
+    for(Impl::Value const& v : qResult) {
+        result.push_back(v.second);
+    }
+    return result;
+}
 
 Container::iterator Container::begin() { return impl->container.begin(); }
 Container::iterator Container::end() { return impl->container.end(); }

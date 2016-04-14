@@ -9,20 +9,21 @@
 using std::cout;
 using std::endl;
 
-
 int main() {
     using Box = CommonCase::Box<int>;
     using Point = CommonCase::Point<int>;
 
-    Point z(0, 0 ,0);
+    Point z(0, 0, 0);
 
-    std::vector<Box> boxes = {Box(Point(0, 0 ,0), Point(10,20,30)), Box(Point(0,0,30), Point(10,20,50)) };
+    std::vector<Box> boxes = {Box(Point(0, 0 ,0), Point(10,20,30)),
+                              Box(Point(0,0,30), Point(10,20,50)),
+                              Box(Point(0,0,50), Point(10,20,80)) };
 
-    cout << "demo begin " << z << " " << boxes[0] << endl;
-
-    const Spatial::Container sc(boxes);
-    for(auto& box: sc) {
-//        cout << box.lo().x() << endl;
+    Spatial::Container sc(boxes);
+//    cout << sc.getBox(0) << endl;
+    auto res = sc.getNeighbors(1);
+    for(auto& val: res) {
+        cout << val << endl;
     }
 }
 
