@@ -13,11 +13,12 @@ public:
 
 private:
     typedef std::vector<Spatial::Component> _implContainer;
+    typedef std::vector<Box> Boxes;
     typedef _implContainer::iterator iterator;
     typedef _implContainer::const_iterator const_iterator;
 
 public:
-    Container();
+    Container(std::vector<Box> const& values);
 
     iterator begin();
     iterator end();
@@ -33,7 +34,7 @@ private:
     std::shared_ptr<Impl> impl;
 };
 
-    inline void demo();
+    void demo();
 
 } // namespace Spatial
 
@@ -42,12 +43,16 @@ private:
 #include <iostream>
 #include "box.h"
 
-void Spatial::demo() {
+inline void Spatial::demo() {
+    using Box = Component::Box;
+    using Point = CommonCase::Point<Box::type>;
     using std::cout;
     using std::endl;
-    cout << "demo begin" << endl;
 
-    const Spatial::Container sc;
+    cout << "demo begin" << endl;
+    std::vector<Component::Box> boxes = {Box(Point(1,2,3), Point(10,20,30)), Box(Point(10,20,30), Point(100,200,300)) };
+
+    const Spatial::Container sc(boxes);
     for(auto& box: sc) {
 //        cout << box.lo().x() << endl;
     }
