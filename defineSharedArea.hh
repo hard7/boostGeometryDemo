@@ -1,7 +1,7 @@
 #ifndef BOOSTGEOMETRYDEMO_DEFINESHAREDAREA_HH
 #define BOOSTGEOMETRYDEMO_DEFINESHAREDAREA_HH
 
-#include "Spatial/SpatialContainer.h"
+#include "Spatial/Container.h"
 //
 //template <typename _InputIterator>
 //auto defineSharedArea(_InputIterator begin, _InputIterator end) -> std::vector< typename _InputIterator::value_type > {

@@ -1,32 +1,32 @@
 #ifndef __SPATIAL_CONTAINER_H__
 #define __SPATIAL_CONTAINER_H__
 
-#include "box/fwd.h"
+#include "Spatial/Component.h"
 #include <memory>
 #include <vector>
 
 namespace Spatial {
 
-class SpatialContainer {
+class Container {
 public:
-    typedef CommonCase::Box<int> Box;
+    typedef Spatial::Component::Box Box;
 
 private:
-    typedef std::vector<Box> Container;
-    typedef Container::iterator iterator;
-    typedef Container::const_iterator const_iterator;
+    typedef std::vector<Spatial::Component> _implContainer;
+    typedef _implContainer::iterator iterator;
+    typedef _implContainer::const_iterator const_iterator;
 
 public:
-    SpatialContainer();
+    Container();
 
-//    class iterator;
     iterator begin();
     iterator end();
 
-//    class const_iterator;
     const_iterator begin() const;
     const_iterator end() const;
 
+    const_iterator cbegin() const;
+    const_iterator cend() const;
 
 private:
     class Impl;
@@ -47,9 +47,9 @@ void Spatial::demo() {
     using std::endl;
     cout << "demo begin" << endl;
 
-    const SpatialContainer sc;
+    const Spatial::Container sc;
     for(auto& box: sc) {
-        cout << box.lo().x() << endl;
+//        cout << box.lo().x() << endl;
     }
 }
 
