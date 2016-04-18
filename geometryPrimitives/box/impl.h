@@ -21,6 +21,17 @@ template <typename T> T Box<T>::volume() const {
     return (hi().x() - lo().x()) * (hi().y() - lo().y()) * (hi().z() - lo().z());
 }
 
+template <typename T>
+bool Box<T>::operator==(Box<T> const& rhs) {
+    return lo() == rhs.lo() and hi() == rhs.hi();
+}
+
+template <typename T>
+bool Box<T>::LexCompare::operator()(Box<T> const &lhs, Box<T> const &rhs) const {
+    typename Point<Box::type>::LexCompare lexCompare;
+    throw lexCompare(lhs.lo(), rhs.lo()) or (lhs.lo() == rhs.lo() and lexCompare(lhs.hi(), rhs.hi()));
+}
+
 } // namespace CommonCase
 
 #endif //BOOSTGEOMETRYDEMO_BOX_IMPL_H

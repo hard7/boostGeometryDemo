@@ -7,7 +7,11 @@
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/geometry/algorithms/intersection.hpp>
 
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+
 #include "stream/box.h"                                 //FIXME DELETE
+#include "MultimapRange.h"
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -107,18 +111,79 @@ std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) c
     return result;
 }
 
-std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
-    Box current = getBox(boxId);
-    std::vector<Component::OutputExchange> result;
+template <typename T>
+static std::set<T> collectInRange(T min_, T max_, T value_1, T value_2) {
+    return { min_, max_, std::min(max_, std::max(min_, value_1)), std::min(max_, std::max(min_, value_2)) };
+}
 
-    for(BoxId neighborBoxId : getNeighbors(boxId)) {
-        Box neighbor = getBox(neighborBoxId);
-        Box expandedNeighbor = Impl::expand(neighbor, 1);
-        Box donor = Impl::trueIntersection(current, expandedNeighbor);
-        result.push_back({donor, donor, {neighborBoxId}});
+static std::vector<Container::Box> difference(Container::Box const& box_1, Container::Box const& box_2) {
+    typedef typename Container::Box::type Base;
+    typedef std::set<Base> Resection;
+    std::vector<Container::Box> result;
+    Resection resX = collectInRange<Base>(box_1.lo().x(), box_1.hi().x(), box_2.lo().x(), box_2.hi().x());
+    Resection resY = collectInRange<Base>(box_1.lo().y(), box_1.hi().y(), box_2.lo().y(), box_2.hi().y());
+    Resection resZ = collectInRange<Base>(box_1.lo().z(), box_1.hi().z(), box_2.lo().z(), box_2.hi().z());
+    typedef Resection::iterator It;
+    for(It xLeft=std::begin(resX), xRight= ++It(xLeft); xRight!=std::end(resX); ++xLeft, ++xRight) {
+        for(It yLeft=std::begin(resY), yRight= ++It(yLeft); yRight!=std::end(resY); ++yLeft, ++yRight) {
+            for(It zLeft=std::begin(resZ), zRight= ++It(zLeft); zRight!=std::end(resZ); ++zLeft, ++zRight) {
+                Container::Point lo(*xLeft, *yLeft, *zLeft);
+                Container::Point hi(*xRight, *yRight, *zRight);
+                Container::Box box(lo, hi);
+                if(not boost::geometry::covered_by(box, box_2)) result.push_back(box);
+            }
+        }
     }
     return result;
 }
+
+std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
+    using std::cout;
+    using std::endl;
+
+    Box current = getBox(boxId);
+    std::vector<Component::OutputExchange> result;
+
+    struct Donor {
+        Box box;
+        std::vector<BoxId> links;
+    };
+
+    std::vector<Donor> donors;
+    for(BoxId neighborBoxId : getNeighbors(boxId)) {
+        Box neighbor = getBox(neighborBoxId);
+        Box expandedNeighbor = Impl::expand(neighbor, 1);
+        Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
+        donors.push_back({donorBox, {neighborBoxId}});
+        std::cout << donorBox << " " << neighborBoxId << std::endl;
+    }
+
+    std::vector<Donor>::iterator itBase, itSub;
+    for(itBase=std::begin(donors); itBase!=std::end(donors); ++itBase) {
+        for(itSub=itBase+1; itSub!=std::end(donors); ++itSub) {
+            std::vector<Box> diff = difference(itBase->box, itSub->box);
+            for(auto& d : diff) {
+                cout << d << " ";
+            }
+            cout << endl;
+        }
+    }
+
+//    for(std::pair<Box, int> donorP : donors) {
+//        typedef boost::geometry::model::polygon<Point> poligon;
+//        std::vector<Box> res;
+////        boost::geometry::difference(current, donorP.first, res);
+//    }
+
+    Box b1(Point(0,0,0), Point(10, 10, 10));
+    Box b2(Point(0,0,0), Point(10, 10, 10));
+    Box b3;
+    bool ret = boost::geometry::covered_by(b1, b2);
+    std::cout << "Result:  " << b3 << " " << ret << std::endl;
+
+    return result;
+}
+
 
 Container::iterator Container::begin() { return impl->container.begin(); }
 Container::iterator Container::end() { return impl->container.end(); }

@@ -9,6 +9,7 @@ class Point {
 public:
     typedef T type;
 
+    Point();
     Point(T const& x, T const& y, T const& z);
 
     T const& x() const;
@@ -19,9 +20,20 @@ public:
     void y(T const&);
     void z(T const&);
 
+    struct LexCompare {
+        bool operator()(Point<T> const& lhs, Point<T> const& rhs) const;
+    };
+
+    bool operator==(Point<T> const& rhs) const;
+
 private:
     T x_, y_, z_;
 };
+
+
+
+//template <typename T>
+//bool lexicographical_less(Point<T> const& lhs, Point<T> const& rhs);
 
 } // namespace CommonCase
 

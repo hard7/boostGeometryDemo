@@ -9,6 +9,7 @@ template <typename T>
 class Box {
 public:
     typedef T type;
+    Box() = default;
     Box(Point<T> const& lo, Point<T> const& hi);
 
     Point<T> & lo();
@@ -21,6 +22,12 @@ public:
 
     void lo(Point<T> const&);
     void hi(Point<T> const&);
+
+    bool operator==(Box<T> const& rhs);
+
+    struct LexCompare {
+        bool operator()(Box<T> const& lhs, Box<T> const& rhs) const;
+    };
 
 private:
     Point<T> _lo, _hi;
