@@ -5,6 +5,7 @@
 #include <boost/geometry/geometries/register/box.hpp>
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/geometry/algorithms/intersection.hpp>
 
 #include "stream/box.h"                                 //FIXME DELETE
 
@@ -46,6 +47,24 @@ struct Container::Impl {
                 , bgi::dynamic_quadratic(boxes_.size())) { }
 
 
+    static Box expand(Box const& box, int expandValue) {
+        Point lo(box.lo().x() - expandValue, box.lo().y() - expandValue, box.lo().z() - expandValue);
+        Point hi(box.hi().x() + expandValue, box.hi().y() + expandValue, box.hi().z() + expandValue);
+        return Box(lo, hi);
+    }
+
+    static Box makeBox() {
+        return Box(Point(0,0,0), Point(0,0,0));
+    }
+
+    static Box trueIntersection(Box const& box1, Box const& box2) throw (std::logic_error) {
+        Box result = makeBox();
+        bool isIntersected = boost::geometry::intersection(box1, box2, result);
+        if(not isIntersected or result.volume() <= 0) {
+            throw std::logic_error("Bad intersection");
+        }
+        return result;
+    }
 };
 
 
@@ -62,12 +81,41 @@ Box const& Container::getBox(BoxId boxId) const {
 }
 
 std::vector<Container::BoxId> Container::getNeighbors(BoxId boxId) const {
-    std::vector<Impl::Value> qResult;
     std::vector<BoxId> result;
+    std::vector<Impl::Value> queryResult;
     Box const& target = getBox(boxId);
-    impl->rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(qResult));
-    for(Impl::Value const& v : qResult) {
+    impl->rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(queryResult));
+    for(Impl::Value const& v : queryResult) {
         result.push_back(v.second);
+    }
+    return result;
+}
+
+std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) const {
+    Box base = getBox(boxId);
+    Box expanded = Impl::expand(base, 1);
+    std::vector<Impl::Value> queryResult;
+    std::vector<Component::InputExchange> result;
+    impl->rtree.query(bgi::intersects(expanded) and not bgi::covered_by(expanded), std::back_inserter(queryResult));
+    for(Impl::Value const& value : queryResult) {
+        Box const& intersected = value.first;
+        BoxId intersectedId = value.second;
+        Box common(base);
+        boost::geometry::intersection(expanded, intersected, common);
+        result.push_back(Component::InputExchange {common, common, intersectedId});
+    }
+    return result;
+}
+
+std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
+    Box current = getBox(boxId);
+    std::vector<Component::OutputExchange> result;
+
+    for(BoxId neighborBoxId : getNeighbors(boxId)) {
+        Box neighbor = getBox(neighborBoxId);
+        Box expandedNeighbor = Impl::expand(neighbor, 1);
+        Box donor = Impl::trueIntersection(current, expandedNeighbor);
+        result.push_back({donor, donor, {neighborBoxId}});
     }
     return result;
 }

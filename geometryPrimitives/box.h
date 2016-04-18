@@ -11,8 +11,13 @@ public:
     typedef T type;
     Box(Point<T> const& lo, Point<T> const& hi);
 
+    Point<T> & lo();
+    Point<T> & hi();
+
     Point<T> const& lo() const;
     Point<T> const& hi() const;
+
+    T volume() const;
 
     void lo(Point<T> const&);
     void hi(Point<T> const&);
