@@ -7,6 +7,8 @@
 #include "stream/box.h"
 #include <map>
 
+//#include "impl/algo_box.hh"
+
 using std::cout;
 using std::endl;
 
@@ -19,13 +21,44 @@ using std::endl;
 
 
 #include <set>
+#include <list>
 
 std::vector<Spatial::Container::Box> generateBoxes();
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::vector<T> const& vec) {
+    for(T const& item : vec) os << item << " ";
+    return os;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::list<T> const& vec) {
+    for(T const& item : vec) os << item << " ";
+    return os;
+}
+
 
 int main() {
     using Box = CommonCase::Box<int>;
     using Point = CommonCase::Point<int>;
 
+
+    {
+        typedef std::list<int> List;
+        List list = {6, 5, 4, 2, 6, 8};
+//        for(List::iterator iBase=std::begin(list); iBase!=std::end(list); ++iBase) {
+//            static int asdgacwadaw = 4;
+//            if(--asdgacwadaw >= 0) List::iterator it = list.insert(++List::iterator(iBase), 1);
+//            *it *= 10;
+//        }
+
+        List::iterator it = begin(list);
+        cout << "list: " << list << endl;
+        it--;
+        cout << ": " << (it == std::end(list)) << endl;
+    }
+
+    cout << "** Begin **" << endl;
     Point z(0, 0, 0);
 
     std::vector<Box> boxes = generateBoxes();
@@ -35,12 +68,11 @@ int main() {
 
 
     Spatial::Container sc(boxes);
-//    cout << sc.getBox(0) << endl;
+
     auto res = sc.getNeighbors(0);
     for(auto& val: sc.getOutputExchange(0)) {
-        cout << val.donor << " " << val.destinations [0] << endl;
+        cout << val.donor << " -> " << val.destinations << endl;
     }
-
 }
 
 
@@ -49,7 +81,7 @@ int main() {
 
 std::vector<Spatial::Container::Box> generateBoxes() {
     const int step = 10;
-    const int iCount = 3, jCount = 2, kCount = 1;
+    const int iCount = 3, jCount = 2, kCount = 2;
 
     std::vector<Spatial::Container::Box> result;
     for(int k=0; k<kCount; ++k) {

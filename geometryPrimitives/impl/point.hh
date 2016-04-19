@@ -1,7 +1,7 @@
 #ifndef BOOSTGEOMETRYDEMO_POINT_IMPL_H
 #define BOOSTGEOMETRYDEMO_POINT_IMPL_H
 
-#include "../point.h"
+#include "point.h"
 
 namespace CommonCase {
 

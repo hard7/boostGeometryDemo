@@ -1,7 +1,7 @@
-#ifndef BOOSTGEOMETRYDEMO_BOX_IMPL_H
-#define BOOSTGEOMETRYDEMO_BOX_IMPL_H
+#ifndef __BOX_IMPL_HH__
+#define __BOX_IMPL_HH__
 
-#include "../box.h"
+#include "box.h"
 //#include "../point/impl.h"
 
 namespace CommonCase {
@@ -34,4 +34,4 @@ bool Box<T>::LexCompare::operator()(Box<T> const &lhs, Box<T> const &rhs) const 
 
 } // namespace CommonCase
 
-#endif //BOOSTGEOMETRYDEMO_BOX_IMPL_H
+#endif //__BOX_IMPL_HH__

@@ -10,8 +10,13 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 
+#include <list>
+
 #include "stream/box.h"                                 //FIXME DELETE
 #include "MultimapRange.h"
+#include "algo_box.h"
+#include <boost/range/join.hpp>
+
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -111,35 +116,12 @@ std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) c
     return result;
 }
 
-template <typename T>
-static std::set<T> collectInRange(T min_, T max_, T value_1, T value_2) {
-    return { min_, max_, std::min(max_, std::max(min_, value_1)), std::min(max_, std::max(min_, value_2)) };
-}
-
-static std::vector<Container::Box> difference(Container::Box const& box_1, Container::Box const& box_2) {
-    typedef typename Container::Box::type Base;
-    typedef std::set<Base> Resection;
-    std::vector<Container::Box> result;
-    Resection resX = collectInRange<Base>(box_1.lo().x(), box_1.hi().x(), box_2.lo().x(), box_2.hi().x());
-    Resection resY = collectInRange<Base>(box_1.lo().y(), box_1.hi().y(), box_2.lo().y(), box_2.hi().y());
-    Resection resZ = collectInRange<Base>(box_1.lo().z(), box_1.hi().z(), box_2.lo().z(), box_2.hi().z());
-    typedef Resection::iterator It;
-    for(It xLeft=std::begin(resX), xRight= ++It(xLeft); xRight!=std::end(resX); ++xLeft, ++xRight) {
-        for(It yLeft=std::begin(resY), yRight= ++It(yLeft); yRight!=std::end(resY); ++yLeft, ++yRight) {
-            for(It zLeft=std::begin(resZ), zRight= ++It(zLeft); zRight!=std::end(resZ); ++zLeft, ++zRight) {
-                Container::Point lo(*xLeft, *yLeft, *zLeft);
-                Container::Point hi(*xRight, *yRight, *zRight);
-                Container::Box box(lo, hi);
-                if(not boost::geometry::covered_by(box, box_2)) result.push_back(box);
-            }
-        }
-    }
-    return result;
-}
-
 std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
     using std::cout;
     using std::endl;
+
+    using std::begin;
+    using std::end;
 
     Box current = getBox(boxId);
     std::vector<Component::OutputExchange> result;
@@ -149,37 +131,51 @@ std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId)
         std::vector<BoxId> links;
     };
 
-    std::vector<Donor> donors;
+    std::list<Donor> donors;
     for(BoxId neighborBoxId : getNeighbors(boxId)) {
         Box neighbor = getBox(neighborBoxId);
         Box expandedNeighbor = Impl::expand(neighbor, 1);
         Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
         donors.push_back({donorBox, {neighborBoxId}});
-        std::cout << donorBox << " " << neighborBoxId << std::endl;
+//        std::cout << donorBox << " " << neighborBoxId << std::endl;
     }
 
-    std::vector<Donor>::iterator itBase, itSub;
-    for(itBase=std::begin(donors); itBase!=std::end(donors); ++itBase) {
-        for(itSub=itBase+1; itSub!=std::end(donors); ++itSub) {
-            std::vector<Box> diff = difference(itBase->box, itSub->box);
-            for(auto& d : diff) {
-                cout << d << " ";
+    typedef std::list<Donor>::iterator iter;
+    for(iter i=begin(donors); i!=end(donors); ++i) {
+        for(iter j= ++iter(i); j!=end(donors); ++j) {
+            Box& iBox = i->box, & jBox = j->box;
+            Box common;
+            bg::intersection(iBox, jBox, common);
+            if(common.volume() > 0) {
+                donors.insert(++iter(i), {common, i->links});
+                std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
+//                std::transform(begin(diffs), end(diffs), std::inserter(donors, ++iter(i)),
+//                           [](Box const& box) { return {box, i->links}; });
             }
-            cout << endl;
+
+//            std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
+//            std::transform(begin(diffs), end(diffs), std::inserter(donors, ++iter(i)),
+//                           [](Donor const& d) { return {d, boost::join()}; });
+
+//            donors.insert(++iter(i), )
+
+//            Box& iBox = i->box, & jBox = j->box;
+//            if(not bg::covered_by(iBox, jBox) and  not bg::covered_by(jBox, iBox)) continue;
+//
+//            std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
+//            if(diffs.empty()) continue;
+//            else if(diffs.size() == 1) {
+//                iBox = diffs.front();
+//                j->links.insert(end(j->links), begin(i->links), end(i->links));
+//            }
+//            else throw std::logic_error("diffs.size() > 1");
         }
     }
 
-//    for(std::pair<Box, int> donorP : donors) {
-//        typedef boost::geometry::model::polygon<Point> poligon;
-//        std::vector<Box> res;
-////        boost::geometry::difference(current, donorP.first, res);
-//    }
+    result.reserve(donors.size());
+    std::transform(begin(donors), end(donors), std::back_inserter(result),
+                   [](Donor const& d) { return (Component::OutputExchange) {d.box, d.box, d.links}; } );
 
-    Box b1(Point(0,0,0), Point(10, 10, 10));
-    Box b2(Point(0,0,0), Point(10, 10, 10));
-    Box b3;
-    bool ret = boost::geometry::covered_by(b1, b2);
-    std::cout << "Result:  " << b3 << " " << ret << std::endl;
 
     return result;
 }
