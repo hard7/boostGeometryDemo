@@ -22,6 +22,7 @@ using std::endl;
 
 #include <set>
 #include <list>
+#include <algo_box.h>
 
 std::vector<Spatial::Container::Box> generateBoxes();
 
@@ -46,20 +47,25 @@ int main() {
     {
         typedef std::list<int> List;
         List list = {6, 5, 4, 2, 6, 8};
+
+//        cout << *list.erase(++std::begin(list)) << endl;
 //        for(List::iterator iBase=std::begin(list); iBase!=std::end(list); ++iBase) {
 //            static int asdgacwadaw = 4;
 //            if(--asdgacwadaw >= 0) List::iterator it = list.insert(++List::iterator(iBase), 1);
 //            *it *= 10;
 //        }
 
-        List::iterator it = begin(list);
-        cout << "list: " << list << endl;
-        it--;
-        cout << ": " << (it == std::end(list)) << endl;
+//        List::iterator it = begin(list);
+//        cout << "list: " << list << endl;
+//        it--;
+//        cout << ": " << (it == std::end(list)) << endl;
     }
 
     cout << "** Begin **" << endl;
-    Point z(0, 0, 0);
+    Box b1(Point(0, 0, 0), Point(30,30,30));
+    Box b2(Point(10, 10, 10), Point(20,20,20));
+
+//    cout << CommonCase::split(b1, b2) . size() << endl;
 
     std::vector<Box> boxes = generateBoxes();
 //            { Box(Point(0, 0 ,0), Point(10,20,30)),

@@ -116,6 +116,23 @@ std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) c
     return result;
 }
 
+
+namespace {
+
+    struct Donor {
+        typedef std::set<Component::BoxId> Links;
+        Box box;
+        Links links;
+        Donor(Box const box_, Links const& links_) : box(box_), links(links_) {}
+    };
+
+    struct DonorMaker {
+        Donor::Links& links;
+        DonorMaker(Donor::Links& links_) : links(links_) {}
+        Donor operator()(Box const& box) { return Donor(box, links); }
+    };
+} // namespace {anonymous}
+
 std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
     using std::cout;
     using std::endl;
@@ -126,10 +143,7 @@ std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId)
     Box current = getBox(boxId);
     std::vector<Component::OutputExchange> result;
 
-    struct Donor {
-        Box box;
-        std::vector<BoxId> links;
-    };
+
 
     std::list<Donor> donors;
     for(BoxId neighborBoxId : getNeighbors(boxId)) {
@@ -137,44 +151,39 @@ std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId)
         Box expandedNeighbor = Impl::expand(neighbor, 1);
         Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
         donors.push_back({donorBox, {neighborBoxId}});
-//        std::cout << donorBox << " " << neighborBoxId << std::endl;
     }
+
 
     typedef std::list<Donor>::iterator iter;
     for(iter i=begin(donors); i!=end(donors); ++i) {
-        for(iter j= ++iter(i); j!=end(donors); ++j) {
+        for(iter j= ++iter(i); j!=end(donors); /* ++j */) {
             Box& iBox = i->box, & jBox = j->box;
+            if(iBox == jBox) {
+                i->links.insert(begin(j->links), end(j->links));
+                j = donors.erase(j);
+                continue;
+            }
+
             Box common;
             bg::intersection(iBox, jBox, common);
             if(common.volume() > 0) {
-                donors.insert(++iter(i), {common, i->links});
-                std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
-//                std::transform(begin(diffs), end(diffs), std::inserter(donors, ++iter(i)),
-//                           [](Box const& box) { return {box, i->links}; });
+                std::vector<Box> iSp = CommonCase::split(iBox, common);
+                std::transform(begin(iSp), end(iSp), std::inserter(donors, ++iter(i)), DonorMaker(i->links));
+                i = donors.erase(i);
+
+                std::vector<Box> jSp = CommonCase::split(jBox, common);
+                std::transform(begin(jSp), end(jSp), std::inserter(donors, ++iter(j)), DonorMaker(j->links));
+                j = donors.erase(j);
+                continue;
             }
 
-//            std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
-//            std::transform(begin(diffs), end(diffs), std::inserter(donors, ++iter(i)),
-//                           [](Donor const& d) { return {d, boost::join()}; });
-
-//            donors.insert(++iter(i), )
-
-//            Box& iBox = i->box, & jBox = j->box;
-//            if(not bg::covered_by(iBox, jBox) and  not bg::covered_by(jBox, iBox)) continue;
-//
-//            std::vector<Box> diffs = CommonCase::difference(iBox, jBox);
-//            if(diffs.empty()) continue;
-//            else if(diffs.size() == 1) {
-//                iBox = diffs.front();
-//                j->links.insert(end(j->links), begin(i->links), end(i->links));
-//            }
-//            else throw std::logic_error("diffs.size() > 1");
+            ++j;
         }
     }
 
     result.reserve(donors.size());
     std::transform(begin(donors), end(donors), std::back_inserter(result),
-                   [](Donor const& d) { return (Component::OutputExchange) {d.box, d.box, d.links}; } );
+                   [](Donor const& d) { return (Component::OutputExchange) { d.box, d.box, {begin(d.links), end(d.links) } }; } );
 
 
     return result;

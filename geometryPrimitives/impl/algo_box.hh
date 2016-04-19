@@ -31,6 +31,15 @@ namespace CommonCase_ {
 
 template <class Box>
 std::vector<Box> CommonCase::difference(Box const& b1, Box const& b2) {
+    std::vector<Box> splitted = split(b1, b2);
+    typename std::vector<Box>::iterator found = std::find_if(
+            std::begin(splitted), std::end(splitted), [&b2](Box const& box) {return BoostWrapper::covered_by(box, b2); });
+    if(found != std::end(splitted)) splitted.erase(found);
+    return splitted;
+}
+
+template <class Box> // implicit
+std::vector<Box> CommonCase::split(Box const& b1, Box const& b2) {
     using namespace CommonCase_;
     typedef typename Box::type T;
     typedef std::vector<T> Resection;
@@ -44,11 +53,11 @@ std::vector<Box> CommonCase::difference(Box const& b1, Box const& b2) {
     std::vector<Box> result;
     result.reserve( (resX.size()-1) * (resY.size()-1) * (resZ.size()-1) );
     typename Resection::iterator lx, ly, lz, rx, ry, rz;
-    for(lx=begin(resX), rx=++begin(resX); rx!=end(resX); ++lx, ++rx) {
+    for(lz=begin(resZ), rz=++begin(resZ); rz!=end(resZ); ++lz, ++rz) {
         for(ly=begin(resY), ry=++begin(resY); ry!=end(resY); ++ly, ++ry) {
-            for(lz=begin(resZ), rz=++begin(resZ); rz!=end(resZ); ++lz, ++rz) {
+            for(lx=begin(resX), rx=++begin(resX); rx!=end(resX); ++lx, ++rx) {
                 Box box({*lx, *ly, *lz}, {*rx, *ry, *rz});
-                if(not BoostWrapper::covered_by(box, b2)) result.push_back(box);
+                result.push_back(box);
             }
         }
     }
