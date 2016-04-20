@@ -38,11 +38,37 @@ std::ostream& operator<<(std::ostream& os, std::list<T> const& vec) {
     return os;
 }
 
+#include <boost/iterator/counting_iterator.hpp>
+#include <algorithm>
+#include <functional>
+
 
 int main() {
     using Box = CommonCase::Box<int>;
     using Point = CommonCase::Point<int>;
 
+
+    struct A {
+        int power = 10;
+        std::vector<int> b;
+        A() {
+            using namespace std::placeholders;
+            std::transform(boost::counting_iterator<int>(0), boost::counting_iterator<int>(10),
+                           std::back_inserter(b), std::bind(&A::func, *this, _1));
+        }
+
+        A(A const& other) {
+            power = other.power;
+            b = other.b;
+            cout << "COPY" << endl;
+        }
+
+        int func(int a) { return a * power; }
+    };
+
+    A a;
+    a.b.insert(--std::end(a.b), 100);
+        cout << a.b << endl;
 
     {
         typedef std::list<int> List;
@@ -76,7 +102,7 @@ int main() {
     Spatial::Container sc(boxes);
 
     auto res = sc.getNeighbors(0);
-//    for(auto& val: sc.getOutputExchange(0)) {
+//    for(auto& val: sc.findOutputExchange(0)) {
 //        cout << val.donor << " -> " << val.destinations << endl;
 //    }
 

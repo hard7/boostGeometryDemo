@@ -15,7 +15,7 @@
 #include "stream/box.h"                                 //FIXME DELETE
 #include "MultimapRange.h"
 #include "algo_box.h"
-#include <boost/range/join.hpp>
+//#include <boost/iterator/counting_iterator.hpp>
 
 
 namespace bg = boost::geometry;
@@ -42,19 +42,45 @@ namespace {
     };
 }
 
+namespace {
+
+    struct Donor {
+        typedef std::set<Spatial::Component::BoxId> Links;
+        Box box;
+        Links links;
+        Donor(Box const box_, Links const& links_) : box(box_), links(links_) {}
+    };
+
+    struct DonorMaker {
+        Donor::Links& links;
+        DonorMaker(Donor::Links& links_) : links(links_) {}
+        Donor operator()(Box const& box) { return Donor(box, links); }
+    };
+} // namespace {anonymous}
+
+
 namespace Spatial {
 
 struct Container::Impl {
     typedef std::pair<Box, int> Value;
+    typedef unsigned int BorderWidth;
 
     _implContainer container;
     const std::vector<Box> boxes;
     bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
-    unsigned int borderWidth;
+    BorderWidth borderWidth;
+
+    mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::vector> cachedOutput;
+    mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::vector> cachedInput;
+    std::map<BoxId, std::vector<BoxId> > neighbor;
 
     Impl(Boxes const& boxes_, unsigned int borderWidth_) : boxes(boxes_), borderWidth(borderWidth_),
             rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
-                , bgi::dynamic_quadratic(boxes_.size())) { }
+                , bgi::dynamic_quadratic(boxes_.size())) {
+        for(int i=0; i<boxes.size(); ++i) {
+            neighbor.insert(std::make_pair(i, findNeighbor(i)));
+        }
+    }
 
 
     static Box expand(Box const& box, int expandValue) {
@@ -75,7 +101,116 @@ struct Container::Impl {
         }
         return result;
     }
+
+    Box const& getBox(BoxId boxId) const {
+        return boxes.at(boxId);
+    }
+
+    std::vector<BoxId> const& getNeighbors(BoxId boxId) const {
+        return neighbor.at(boxId);
+    }
+
+    std::vector<Component::InputExchange> const& getInputExchange(BoxId boxId, unsigned int width) const {
+        auto key = std::make_pair(boxId, width);
+        auto found = cachedInput.find(key);
+        if(found != std::end(cachedInput)) return found->second;
+        else {
+            cachedInput.insert(std::make_pair(key, findInputExchange(boxId, width)));
+            return cachedInput.at(key);
+        }
+    }
+
+
+    std::vector<Component::OutputExchange> const& getOutputExchange(BoxId boxId, unsigned int width) const {
+        auto key = std::make_pair(boxId, width);
+        auto found = cachedOutput.find(key);
+        if(found != std::end(cachedOutput)) return found->second;
+        else {
+            cachedOutput.insert(std::make_pair(key, findOutputExchange(boxId, width)));
+            return cachedOutput.at(key);
+        }
+    }
+
+private:
+
+    std::vector<Container::BoxId> findNeighbor(BoxId boxId) const {
+        std::vector<BoxId> result;
+        std::vector<Value> queryResult;
+        Box const& target = getBox(boxId);
+        rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(queryResult));
+        for(Impl::Value const& v : queryResult) {
+            result.push_back(v.second);
+        }
+        return result;
+    }
+
+    std::vector<Component::InputExchange> findInputExchange(BoxId boxId, unsigned int width) const {
+        std::vector<Component::InputExchange> result;
+        for(BoxId neighborBoxId : getNeighbors(boxId)) {
+            for(Component::OutputExchange const& output : getOutputExchange(neighborBoxId, width)) {
+                Component::BoxIdGroup::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
+                if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {output.donor, output.donor, neighborBoxId});
+            }
+        }
+        return result;
+    }
+
+    std::vector<Component::OutputExchange> findOutputExchange(BoxId boxId, unsigned int width) const {
+        using std::begin;
+        using std::end;
+
+        Box current = getBox(boxId);
+        std::vector<Component::OutputExchange> result;
+
+        std::list<Donor> donors;
+        for(BoxId neighborBoxId : getNeighbors(boxId)) {
+            Box neighbor = getBox(neighborBoxId);
+            Box expandedNeighbor = Impl::expand(neighbor, width);
+            Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
+            donors.push_back({donorBox, {neighborBoxId}});
+        }
+
+
+        typedef std::list<Donor>::iterator iter;
+        for(iter i=begin(donors); i!=end(donors); ++i) {
+            for(iter j= ++iter(i); j!=end(donors); /* ++j */) {
+                Box& iBox = i->box, & jBox = j->box;
+                if(iBox == jBox) {
+                    i->links.insert(begin(j->links), end(j->links));
+                    j = donors.erase(j);
+                    continue;
+                }
+
+                Box common;
+                bg::intersection(iBox, jBox, common);
+                if(common.volume() > 0) {
+                    std::vector<Box> iSp = CommonCase::split(iBox, common);
+                    std::transform(begin(iSp), end(iSp), std::inserter(donors, ++iter(i)), DonorMaker(i->links));
+                    i = donors.erase(i);
+
+                    std::vector<Box> jSp = CommonCase::split(jBox, common);
+                    std::transform(begin(jSp), end(jSp), std::inserter(donors, ++iter(j)), DonorMaker(j->links));
+                    j = donors.erase(j);
+                    continue;
+                }
+
+                ++j;
+            }
+        }
+
+        result.reserve(donors.size());
+        std::transform(begin(donors), end(donors), std::back_inserter(result),
+                       [](Donor const& d) { return (Component::OutputExchange) { d.box, d.box, {begin(d.links), end(d.links) } }; } );
+
+        return result;
+    }
+
+
+
+
 };
+
+//----------------------------------------------------------------------------------------------------------------------
 
 
 Container::Container(Boxes const& boxes, unsigned int borderWidth /* = 1 */) : impl(new Impl(boxes, borderWidth)) {
@@ -87,108 +222,25 @@ Container::Container(Boxes const& boxes, unsigned int borderWidth /* = 1 */) : i
 }
 
 Box const& Container::getBox(BoxId boxId) const {
-    return impl->boxes.at(boxId);
+    return impl->getBox(boxId);
 }
 
-std::vector<Container::BoxId> Container::getNeighbors(BoxId boxId) const {
-    std::vector<BoxId> result;
-    std::vector<Impl::Value> queryResult;
-    Box const& target = getBox(boxId);
-    impl->rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(queryResult));
-    for(Impl::Value const& v : queryResult) {
-        result.push_back(v.second);
-    }
-    return result;
+std::vector<Container::BoxId> const& Container::getNeighbors(BoxId boxId) const { return impl->getNeighbors(boxId); }
+
+std::vector<Component::InputExchange> const& Container::getInputExchange(BoxId boxId) const {
+    return impl->getInputExchange(boxId, impl->borderWidth);
 }
 
-std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) const {
-    return getInputExchange(boxId, impl->borderWidth);
+std::vector<Component::InputExchange> const& Container::getInputExchange(BoxId boxId, unsigned int width) const {
+    impl->getInputExchange(boxId, width);
 }
 
-std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId, unsigned int width) const {
-    std::vector<Component::InputExchange> result;
-    for(BoxId neighborBoxId : getNeighbors(boxId)) {
-        for(Component::OutputExchange const& output : Container::getOutputExchange(neighborBoxId, width)) {
-            Component::BoxIdGroup::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
-            if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {output.donor, output.donor, neighborBoxId});
-        }
-    }
-    return result;
+std::vector<Component::OutputExchange> const& Container::getOutputExchange(BoxId boxId) const {
+    return impl->getOutputExchange(boxId, impl->borderWidth);
 }
 
-
-namespace {
-
-    struct Donor {
-        typedef std::set<Component::BoxId> Links;
-        Box box;
-        Links links;
-        Donor(Box const box_, Links const& links_) : box(box_), links(links_) {}
-    };
-
-    struct DonorMaker {
-        Donor::Links& links;
-        DonorMaker(Donor::Links& links_) : links(links_) {}
-        Donor operator()(Box const& box) { return Donor(box, links); }
-    };
-} // namespace {anonymous}
-
-std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
-    return getOutputExchange(boxId, impl->borderWidth);
-}
-
-std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId, unsigned int width) const {
-//    using std::cout;
-//    using std::endl;
-
-    using std::begin;
-    using std::end;
-
-    Box current = getBox(boxId);
-    std::vector<Component::OutputExchange> result;
-
-    std::list<Donor> donors;
-    for(BoxId neighborBoxId : getNeighbors(boxId)) {
-        Box neighbor = getBox(neighborBoxId);
-        Box expandedNeighbor = Impl::expand(neighbor, width);
-        Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
-        donors.push_back({donorBox, {neighborBoxId}});
-    }
-
-
-    typedef std::list<Donor>::iterator iter;
-    for(iter i=begin(donors); i!=end(donors); ++i) {
-        for(iter j= ++iter(i); j!=end(donors); /* ++j */) {
-            Box& iBox = i->box, & jBox = j->box;
-            if(iBox == jBox) {
-                i->links.insert(begin(j->links), end(j->links));
-                j = donors.erase(j);
-                continue;
-            }
-
-            Box common;
-            bg::intersection(iBox, jBox, common);
-            if(common.volume() > 0) {
-                std::vector<Box> iSp = CommonCase::split(iBox, common);
-                std::transform(begin(iSp), end(iSp), std::inserter(donors, ++iter(i)), DonorMaker(i->links));
-                i = donors.erase(i);
-
-                std::vector<Box> jSp = CommonCase::split(jBox, common);
-                std::transform(begin(jSp), end(jSp), std::inserter(donors, ++iter(j)), DonorMaker(j->links));
-                j = donors.erase(j);
-                continue;
-            }
-
-            ++j;
-        }
-    }
-
-    result.reserve(donors.size());
-    std::transform(begin(donors), end(donors), std::back_inserter(result),
-                   [](Donor const& d) { return (Component::OutputExchange) { d.box, d.box, {begin(d.links), end(d.links) } }; } );
-
-
-    return result;
+std::vector<Component::OutputExchange> const& Container::getOutputExchange(BoxId boxId, unsigned int width) const {
+    return impl->getOutputExchange(boxId, width);
 }
 
 

@@ -24,13 +24,13 @@ public:
 
     Box const& getBox(BoxId boxId) const;
     BoxId getBoxId(Box const& box) const;
-    std::vector<BoxId> getNeighbors(BoxId boxId) const;
+    std::vector<BoxId> const& getNeighbors(BoxId boxId) const;
 
-    std::vector<Component::InputExchange> getInputExchange(BoxId boxId) const;
-    std::vector<Component::InputExchange> getInputExchange(BoxId boxId, unsigned int width) const;
+    std::vector<Component::InputExchange> const& getInputExchange(BoxId boxId) const;
+    std::vector<Component::InputExchange> const& getInputExchange(BoxId boxId, unsigned int width) const;
 
-    std::vector<Component::OutputExchange> getOutputExchange(BoxId boxId) const;
-    std::vector<Component::OutputExchange> getOutputExchange(BoxId boxId, unsigned int width) const;
+    std::vector<Component::OutputExchange> const& getOutputExchange(BoxId boxId) const;
+    std::vector<Component::OutputExchange> const& getOutputExchange(BoxId boxId, unsigned int width) const;
 
     iterator begin();
     iterator end();
