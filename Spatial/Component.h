@@ -14,6 +14,7 @@ public:
     typedef CommonCase::Point<int> Point;
     typedef CommonCase::Box<int> Box;
     typedef int BoxId;
+    typedef std::vector<BoxId> BoxIdGroup;
 
     struct InputExchange {
         typedef std::vector<InputExchange> vector;

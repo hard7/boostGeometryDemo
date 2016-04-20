@@ -76,8 +76,13 @@ int main() {
     Spatial::Container sc(boxes);
 
     auto res = sc.getNeighbors(0);
-    for(auto& val: sc.getOutputExchange(0)) {
+//    for(auto& val: sc.getOutputExchange(0)) {
+//        cout << val.donor << " -> " << val.destinations << endl;
+//    }
+
+    for(auto& val: sc.getOutputExchange(2)) {
         cout << val.donor << " -> " << val.destinations << endl;
+//        cout << val.ghost << " -> " << val.source << endl;
     }
 }
 
@@ -86,18 +91,23 @@ int main() {
 //---------
 
 std::vector<Spatial::Container::Box> generateBoxes() {
+    typedef Spatial::Container::Point Point;
+    typedef Spatial::Container::Box Box;
     const int step = 10;
-    const int iCount = 3, jCount = 2, kCount = 2;
+    const int iCount = 1, jCount = 2, kCount = 1;
 
     std::vector<Spatial::Container::Box> result;
     for(int k=0; k<kCount; ++k) {
         for(int j=0; j<jCount; ++j) {
             for(int i=0; i<iCount; ++i) {
-                Spatial::Container::Point lo(i*step, j*step, k*step);
-                Spatial::Container::Point hi(i*step+step, j*step+step, k*step+step);
-                result.push_back(Spatial::Container::Box(lo, hi));
+                Point lo(i*step, j*step, k*step);
+                Point hi(i*step+step, j*step+step, k*step+step);
+                result.push_back(Box(lo, hi));
             }
         }
     }
+
+    result.push_back( { Point(iCount*step, 0, 0), Point(iCount*step+step, jCount*step, jCount*step) } );
+
     return result;
 }

@@ -50,8 +50,9 @@ struct Container::Impl {
     _implContainer container;
     const std::vector<Box> boxes;
     bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
+    unsigned int borderWidth;
 
-    Impl(Boxes const& boxes_) : boxes(boxes_),
+    Impl(Boxes const& boxes_, unsigned int borderWidth_) : boxes(boxes_), borderWidth(borderWidth_),
             rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
                 , bgi::dynamic_quadratic(boxes_.size())) { }
 
@@ -77,7 +78,7 @@ struct Container::Impl {
 };
 
 
-Container::Container(Boxes const& boxes) : impl(new Impl(boxes)) {
+Container::Container(Boxes const& boxes, unsigned int borderWidth /* = 1 */) : impl(new Impl(boxes, borderWidth)) {
     int size = impl->boxes.size();
     impl->container.reserve(size);
     for(int i=0; i<size; ++i) {
@@ -101,17 +102,16 @@ std::vector<Container::BoxId> Container::getNeighbors(BoxId boxId) const {
 }
 
 std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId) const {
-    Box base = getBox(boxId);
-    Box expanded = Impl::expand(base, 1);
-    std::vector<Impl::Value> queryResult;
+    return getInputExchange(boxId, impl->borderWidth);
+}
+
+std::vector<Component::InputExchange> Container::getInputExchange(BoxId boxId, unsigned int width) const {
     std::vector<Component::InputExchange> result;
-    impl->rtree.query(bgi::intersects(expanded) and not bgi::covered_by(expanded), std::back_inserter(queryResult));
-    for(Impl::Value const& value : queryResult) {
-        Box const& intersected = value.first;
-        BoxId intersectedId = value.second;
-        Box common(base);
-        boost::geometry::intersection(expanded, intersected, common);
-        result.push_back(Component::InputExchange {common, common, intersectedId});
+    for(BoxId neighborBoxId : getNeighbors(boxId)) {
+        for(Component::OutputExchange const& output : Container::getOutputExchange(neighborBoxId, width)) {
+            Component::BoxIdGroup::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
+            if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {output.donor, output.donor, neighborBoxId});
+        }
     }
     return result;
 }
@@ -134,8 +134,12 @@ namespace {
 } // namespace {anonymous}
 
 std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId) const {
-    using std::cout;
-    using std::endl;
+    return getOutputExchange(boxId, impl->borderWidth);
+}
+
+std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId, unsigned int width) const {
+//    using std::cout;
+//    using std::endl;
 
     using std::begin;
     using std::end;
@@ -143,12 +147,10 @@ std::vector<Component::OutputExchange> Container::getOutputExchange(BoxId boxId)
     Box current = getBox(boxId);
     std::vector<Component::OutputExchange> result;
 
-
-
     std::list<Donor> donors;
     for(BoxId neighborBoxId : getNeighbors(boxId)) {
         Box neighbor = getBox(neighborBoxId);
-        Box expandedNeighbor = Impl::expand(neighbor, 1);
+        Box expandedNeighbor = Impl::expand(neighbor, width);
         Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
         donors.push_back({donorBox, {neighborBoxId}});
     }

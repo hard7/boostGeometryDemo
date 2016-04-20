@@ -20,13 +20,17 @@ private:
     typedef _implContainer::const_iterator const_iterator;
 
 public:
-    Container(std::vector<Box> const& values);
+    Container(std::vector<Box> const& values, unsigned int borderWidth = 1);
 
     Box const& getBox(BoxId boxId) const;
     BoxId getBoxId(Box const& box) const;
     std::vector<BoxId> getNeighbors(BoxId boxId) const;
+
     std::vector<Component::InputExchange> getInputExchange(BoxId boxId) const;
+    std::vector<Component::InputExchange> getInputExchange(BoxId boxId, unsigned int width) const;
+
     std::vector<Component::OutputExchange> getOutputExchange(BoxId boxId) const;
+    std::vector<Component::OutputExchange> getOutputExchange(BoxId boxId, unsigned int width) const;
 
     iterator begin();
     iterator end();
