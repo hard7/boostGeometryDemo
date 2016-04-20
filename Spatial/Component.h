@@ -25,7 +25,7 @@ public:
     struct OutputExchange {
         typedef std::vector<OutputExchange> vector;
         Box donor, ghost_;
-        std::vector<BoxId> destinations;
+        BoxIdGroup destinations;
     };
 
     Component(Container& container, BoxId boxId);
@@ -34,11 +34,15 @@ public:
 
     InputExchange::vector const& getInputExchange() const;
     OutputExchange::vector const& getOutputExchange() const;
-    std::vector<BoxId> const& getNeighbor() const;
+
+    InputExchange::vector const& getInputExchange(unsigned int width) const;
+    OutputExchange::vector const& getOutputExchange(unsigned int width) const;
+
+    std::vector<BoxId> const& getNeighbors() const;
 
 private:
-    class Impl;
-    std::shared_ptr<Impl> impl;
+    Container& container;
+    BoxId boxId;
 };
 
 

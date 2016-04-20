@@ -47,29 +47,6 @@ int main() {
     using Box = CommonCase::Box<int>;
     using Point = CommonCase::Point<int>;
 
-
-    struct A {
-        int power = 10;
-        std::vector<int> b;
-        A() {
-            using namespace std::placeholders;
-            std::transform(boost::counting_iterator<int>(0), boost::counting_iterator<int>(10),
-                           std::back_inserter(b), std::bind(&A::func, *this, _1));
-        }
-
-        A(A const& other) {
-            power = other.power;
-            b = other.b;
-            cout << "COPY" << endl;
-        }
-
-        int func(int a) { return a * power; }
-    };
-
-    A a;
-    a.b.insert(--std::end(a.b), 100);
-        cout << a.b << endl;
-
     {
         typedef std::list<int> List;
         List list = {6, 5, 4, 2, 6, 8};
@@ -99,16 +76,23 @@ int main() {
 //              Box(Point(0,0,50), Point(10,20,80)) };
 
 
-    Spatial::Container sc(boxes);
+    Spatial::Container spatialContainer(boxes);
 
-    auto res = sc.getNeighbors(0);
+    auto res = spatialContainer.getNeighbors(0);
 //    for(auto& val: sc.findOutputExchange(0)) {
 //        cout << val.donor << " -> " << val.destinations << endl;
 //    }
 
-    for(auto& val: sc.getOutputExchange(2)) {
-        cout << val.donor << " -> " << val.destinations << endl;
-//        cout << val.ghost << " -> " << val.source << endl;
+//    for(auto& val: spatialContainer.getOutputExchange(2)) {
+//        cout << val.donor << " -> " << val.destinations << endl;
+//    }
+
+    using Spatial::Component;
+    for(Component& item : spatialContainer) {
+        for(Component::OutputExchange const& output : item.getOutputExchange()) {
+            cout << output.donor << " " << output.destinations << endl;
+        }
+        break;
     }
 }
 
@@ -120,7 +104,7 @@ std::vector<Spatial::Container::Box> generateBoxes() {
     typedef Spatial::Container::Point Point;
     typedef Spatial::Container::Box Box;
     const int step = 10;
-    const int iCount = 1, jCount = 2, kCount = 1;
+    const int iCount = 2, jCount = 2, kCount = 1;
 
     std::vector<Spatial::Container::Box> result;
     for(int k=0; k<kCount; ++k) {
