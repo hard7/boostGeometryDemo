@@ -13,10 +13,10 @@
 #include <list>
 
 #include "stream/box.h"                                 //FIXME DELETE
-#include "MultimapRange.h"
+//#include "MultimapRange.h"
 #include "algo_box.h"
 //#include <boost/iterator/counting_iterator.hpp>
-
+#include "stream/box.h"
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -80,6 +80,7 @@ struct Container::Impl {
         for(int i=0; i<boxes.size(); ++i) {
             neighbor.insert(std::make_pair(i, findNeighbor(i)));
         }
+        std::cout << rtree.bounds().max_corner().get<0>() << std::endl;
     }
 
 
