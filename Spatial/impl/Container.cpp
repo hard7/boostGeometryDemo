@@ -70,9 +70,9 @@ struct Container::Impl {
     bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
     BorderWidth borderWidth;
 
-    mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::vector> cachedOutput;
-    mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::vector> cachedInput;
-    std::map<BoxId, std::vector<BoxId> > neighbor;
+    mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::Collection> cachedOutput;
+    mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::Collection> cachedInput;
+    std::map<BoxId, Component::BoxIdCollection> neighbor;
 
     Impl(Boxes const& boxes_, unsigned int borderWidth_) : boxes(boxes_), borderWidth(borderWidth_),
             rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
@@ -106,11 +106,11 @@ struct Container::Impl {
         return boxes.at(boxId);
     }
 
-    std::vector<BoxId> const& getNeighbors(BoxId boxId) const {
+    Component::BoxIdCollection const& getNeighbors(BoxId boxId) const {
         return neighbor.at(boxId);
     }
 
-    std::vector<Component::InputExchange> const& getInputExchange(BoxId boxId, unsigned int width) const {
+    Component::InputExchange::Collection const& getInputExchange(BoxId boxId, unsigned int width) const {
         auto key = std::make_pair(boxId, width);
         auto found = cachedInput.find(key);
         if(found != std::end(cachedInput)) return found->second;
@@ -121,7 +121,7 @@ struct Container::Impl {
     }
 
 
-    std::vector<Component::OutputExchange> const& getOutputExchange(BoxId boxId, unsigned int width) const {
+    Component::OutputExchange::Collection const& getOutputExchange(BoxId boxId, unsigned int width) const {
         auto key = std::make_pair(boxId, width);
         auto found = cachedOutput.find(key);
         if(found != std::end(cachedOutput)) return found->second;
@@ -133,8 +133,8 @@ struct Container::Impl {
 
 private:
 
-    std::vector<Container::BoxId> findNeighbor(BoxId boxId) const {
-        std::vector<BoxId> result;
+    Component::BoxIdCollection findNeighbor(BoxId boxId) const {
+        Component::BoxIdCollection result;
         std::vector<Value> queryResult;
         Box const& target = getBox(boxId);
         rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(queryResult));
@@ -144,23 +144,23 @@ private:
         return result;
     }
 
-    std::vector<Component::InputExchange> findInputExchange(BoxId boxId, unsigned int width) const {
-        std::vector<Component::InputExchange> result;
+    Component::InputExchange::Collection findInputExchange(BoxId boxId, unsigned int width) const {
+        Component::InputExchange::Collection result;
         for(BoxId neighborBoxId : getNeighbors(boxId)) {
             for(Component::OutputExchange const& output : getOutputExchange(neighborBoxId, width)) {
-                Component::BoxIdGroup::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
+                Component::BoxIdCollection::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
                 if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {output.donor, output.donor, neighborBoxId});
             }
         }
         return result;
     }
 
-    std::vector<Component::OutputExchange> findOutputExchange(BoxId boxId, unsigned int width) const {
+    Component::OutputExchange::Collection findOutputExchange(BoxId boxId, unsigned int width) const {
         using std::begin;
         using std::end;
 
         Box current = getBox(boxId);
-        std::vector<Component::OutputExchange> result;
+        Component::OutputExchange::Collection result;
 
         std::list<Donor> donors;
         for(BoxId neighborBoxId : getNeighbors(boxId)) {
@@ -225,21 +225,21 @@ Box const& Container::getBox(BoxId boxId) const {
     return impl->getBox(boxId);
 }
 
-std::vector<Container::BoxId> const& Container::getNeighbors(BoxId boxId) const { return impl->getNeighbors(boxId); }
+Component::BoxIdCollection const& Container::getNeighbors(BoxId boxId) const { return impl->getNeighbors(boxId); }
 
-std::vector<Component::InputExchange> const& Container::getInputExchange(BoxId boxId) const {
+Component::InputExchange::Collection const& Container::getInputExchange(BoxId boxId) const {
     return impl->getInputExchange(boxId, impl->borderWidth);
 }
 
-std::vector<Component::InputExchange> const& Container::getInputExchange(BoxId boxId, unsigned int width) const {
+Component::InputExchange::Collection const& Container::getInputExchange(BoxId boxId, unsigned int width) const {
     impl->getInputExchange(boxId, width);
 }
 
-std::vector<Component::OutputExchange> const& Container::getOutputExchange(BoxId boxId) const {
+Component::OutputExchange::Collection const& Container::getOutputExchange(BoxId boxId) const {
     return impl->getOutputExchange(boxId, impl->borderWidth);
 }
 
-std::vector<Component::OutputExchange> const& Container::getOutputExchange(BoxId boxId, unsigned int width) const {
+Component::OutputExchange::Collection const& Container::getOutputExchange(BoxId boxId, unsigned int width) const {
     return impl->getOutputExchange(boxId, width);
 }
 
