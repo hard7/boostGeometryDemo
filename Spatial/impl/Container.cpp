@@ -69,6 +69,7 @@ struct Container::Impl {
     const std::vector<Box> boxes;
     bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
     BorderWidth borderWidth;
+    std::map<BoxId, BoxId> periodicTranslate;
 
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::Collection> cachedOutput;
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::Collection> cachedInput;
@@ -80,7 +81,25 @@ struct Container::Impl {
         for(int i=0; i<boxes.size(); ++i) {
             neighbor.insert(std::make_pair(i, findNeighbor(i)));
         }
-        std::cout << rtree.bounds().max_corner().get<0>() << std::endl;
+
+        appendPeriodicBoxes();
+//
+    }
+
+    void appendPeriodicBoxes() {
+        Box bounds;
+        boost::geometry::convert(rtree.bounds(), bounds);
+        Point boundsSize = bounds.hi() - bounds.lo();
+        for(int k=-1; k<=1; ++k) {
+            for(int j=-1; j<=1; ++j) {
+                for(int i=-1; i<=1; ++i) {
+                    if(i == 0 and j == 0 and k == 0) continue;
+                    Point offset = boundsSize * Point(i, j, k);
+                    Box stick = sticking(bounds, offset);
+//                    rtree.qu
+                }
+            }
+        }
     }
 
 

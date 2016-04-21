@@ -11,6 +11,10 @@ namespace CommonCase {
     template <class Box> // implicit
     std::vector<Box> split(Box const& box_1, Box const& box_2);
 
+
+    template <class Box, class T=typename Box::type>
+    Box sticking(Box const& box, Point<T> const& direct);
+
     template <class Box, typename T = typename Box::type>
     std::pair<T, T> getRangeX(Box const& box);
 

@@ -1,7 +1,6 @@
 #ifndef __ALGO_BOX_IMPL__
 #define __ALGO_BOX_IMPL__
 
-
 #include "algo_box.h"
 #include "algo_boost.h"
 #include <algorithm>
@@ -64,6 +63,21 @@ std::vector<Box> CommonCase::split(Box const& b1, Box const& b2) {
 
     return result;
 }
+
+template <class Box, class T=typename Box::type>
+Box CommonCase::sticking(Box const& box, Point<T> const& direct) {
+    Box result(box);
+    if     (direct.x() > 0) result.lo().x() = result.hi().x();
+    else if(direct.x() < 0) result.hi().x() = result.lo().x();
+
+    if     (direct.y() > 0) result.lo().y() = result.hi().y();
+    else if(direct.y() < 0) result.hi().y() = result.lo().y();
+
+    if     (direct.z() > 0) result.lo().z() = result.hi().z();
+    else if(direct.z() < 0) result.hi().z() = result.lo().z();
+
+    return result;
+};
 
 
 template <class Box, typename T = typename Box::type>

@@ -68,6 +68,8 @@ int main() {
     Box b1(Point(0, 0, 0), Point(30,30,30));
     Box b2(Point(10, 10, 10), Point(20,20,20));
 
+    cout << b1.hi() - b1.lo() << endl;
+
 //    cout << CommonCase::split(b1, b2) . size() << endl;
 
     std::vector<Box> boxes = generateBoxes();
