@@ -21,6 +21,7 @@ _SETUP(BOX, SUPPORTED_TYPES)
 
 #define ALGO_BOX_(Box, T)   template std::vector<Box> CommonCase::difference(Box const& box_1, Box const& box_2); \
                             template std::vector<Box> CommonCase::split(Box const& box_1, Box const& box_2); \
+                            template Box CommonCase::sticking(Box const& box, CommonCase::Point<T> const& direct); \
                             template std::pair<T, T> CommonCase::getRangeX<Box, T>(Box const& box); \
                             template std::pair<T, T> CommonCase::getRangeY<Box, T>(Box const& box); \
                             template std::pair<T, T> CommonCase::getRangeZ<Box, T>(Box const& box);

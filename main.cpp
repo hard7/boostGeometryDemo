@@ -1,13 +1,18 @@
-#include <iostream>
 #include "point.h"
 #include "box.h"
-#include <vector>
 #include "Spatial/Container.h"
 #include "stream/point.h"
 #include "stream/box.h"
-#include <map>
+#include "algo_box.h"
 
-//#include "impl/algo_box.hh"
+#include <vector>
+#include <iostream>
+#include <map>
+#include <set>
+#include <list>
+#include <algorithm>
+#include <functional>
+#include <memory>
 
 using std::cout;
 using std::endl;
@@ -19,10 +24,6 @@ using std::endl;
 
 
 
-
-#include <set>
-#include <list>
-#include <algo_box.h>
 
 std::vector<Spatial::Container::Box> generateBoxes();
 
@@ -38,10 +39,7 @@ std::ostream& operator<<(std::ostream& os, std::list<T> const& vec) {
     return os;
 }
 
-#include <boost/iterator/counting_iterator.hpp>
-#include <algorithm>
-#include <functional>
-
+#include <boost/numeric/conversion/cast.hpp>
 
 int main() {
     using Box = CommonCase::Box<int>;
@@ -68,8 +66,6 @@ int main() {
     Box b1(Point(0, 0, 0), Point(30,30,30));
     Box b2(Point(10, 10, 10), Point(20,20,20));
 
-    cout << b1.hi() - b1.lo() << endl;
-
 //    cout << CommonCase::split(b1, b2) . size() << endl;
 
     std::vector<Box> boxes = generateBoxes();
@@ -78,7 +74,7 @@ int main() {
 //              Box(Point(0,0,50), Point(10,20,80)) };
 
 
-    Spatial::Container spatialContainer(boxes);
+    Spatial::Container spatialContainer(Spatial::Container::Config(boxes).setPeriodicByX());
 
     auto res = spatialContainer.getNeighbors(0);
 //    for(auto& val: sc.findOutputExchange(0)) {
@@ -92,7 +88,7 @@ int main() {
     using Spatial::Component;
     for(Component& item : spatialContainer) {
         for(Component::OutputExchange const& output : item.getOutputExchange()) {
-            cout << output.donor << " " << output.destinations << endl;
+            cout << output.donor << " -> " << output.destinations << endl;
         }
         break;
     }
@@ -119,7 +115,7 @@ std::vector<Spatial::Container::Box> generateBoxes() {
         }
     }
 
-    result.push_back( { Point(iCount*step, 0, 0), Point(iCount*step+step, jCount*step, jCount*step) } );
+    result.push_back( { Point(iCount*step, 0, 0), Point(iCount*step+step, jCount*step, kCount*step) } );
 
     return result;
 }

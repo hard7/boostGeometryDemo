@@ -20,7 +20,10 @@ private:
     typedef _implContainer::const_iterator const_iterator;
 
 public:
-    Container(std::vector<Box> const& values, unsigned int borderWidth = 1);
+    class Config;
+    Container(Boxes const& values);
+    Container(Boxes && values);
+    Container(Config const& config);
 
     Box const& getBox(BoxId boxId) const;
     BoxId getBoxId(Box const& box) const;
@@ -47,5 +50,20 @@ private:
 };
 
 } // namespace Spatial
+
+
+struct Spatial::Container::Config {
+    Boxes boxes;
+    struct Periodic {bool byX = 0, byY = 0, byZ = 0; } periodic;
+    unsigned int borderWidth = 1;
+
+    Config(Boxes const& boxes_) : boxes(boxes_) {}
+    Config(Boxes && boxes_) : boxes(std::move(boxes_)) {}
+    Config& setPeriodicByX() { periodic.byX = true; return *this; }
+    Config& setPeriodicByY() { periodic.byY = true; return *this; }
+    Config& setPeriodicByZ() { periodic.byZ = true; return *this; }
+    Config& setBorderWidth(unsigned int borderWidth_) { borderWidth = borderWidth_; return *this; }
+};
+
 
 #endif //__SPATIAL_CONTAINER_H__

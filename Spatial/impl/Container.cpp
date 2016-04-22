@@ -10,12 +10,16 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 
+#include <boost/numeric/conversion/cast.hpp>
+#include <memory>
+#include <boost/iterator/counting_iterator.hpp>
+
 #include <list>
+#include <tuple>
 
 #include "stream/box.h"                                 //FIXME DELETE
-//#include "MultimapRange.h"
+#include "stream/point.h"                                 //FIXME DELETE
 #include "algo_box.h"
-//#include <boost/iterator/counting_iterator.hpp>
 #include "stream/box.h"
 
 namespace bg = boost::geometry;
@@ -62,44 +66,84 @@ namespace {
 namespace Spatial {
 
 struct Container::Impl {
-    typedef std::pair<Box, int> Value;
     typedef unsigned int BorderWidth;
+    typedef std::pair<Box, int> Value;
+    typedef bgi::rtree< Value, bgi::dynamic_quadratic> Rtree;
+    typedef std::map<BoxId, BoxId> ProjectionIm;
 
     _implContainer container;
     const std::vector<Box> boxes;
-    bgi::rtree< Value, bgi::dynamic_quadratic> rtree;
+    std::vector<Box> boxesIm;
+    std::unique_ptr< Rtree > rtree;
     BorderWidth borderWidth;
-    std::map<BoxId, BoxId> periodicTranslate;
+    ProjectionIm projectionIm;
+
+    std::size_t realBoxCount;
 
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::Collection> cachedOutput;
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::Collection> cachedInput;
     std::map<BoxId, Component::BoxIdCollection> neighbor;
 
-    Impl(Boxes const& boxes_, unsigned int borderWidth_) : boxes(boxes_), borderWidth(borderWidth_),
-            rtree(boxes_ | boost::adaptors::indexed() | boost::adaptors::transformed(pair_maker<Box, int>())
-                , bgi::dynamic_quadratic(boxes_.size())) {
-        for(int i=0; i<boxes.size(); ++i) {
-            neighbor.insert(std::make_pair(i, findNeighbor(i)));
-        }
-
-        appendPeriodicBoxes();
-//
+    Impl(Config const& config) : boxes(std::move(config.boxes)) {
+        realBoxCount = boxes.size();
+        borderWidth = config.borderWidth;
+        std::tie(boxesIm, projectionIm) = findImaginaryBoxes(boxes, config.periodic);
+        initNeighbors();
     }
 
-    void appendPeriodicBoxes() {
+    bool isRealBoxId(BoxId boxId) const { return boxId < realBoxCount; }
+    bool isImaginaryBoxId(BoxId boxId) const { return not isRealBoxId(boxId); }
+
+    Box const& getBox(BoxId boxId) const {
+        if(isRealBoxId(boxId)) return boxes.at(boost::numeric_cast<std::size_t>(boxId));
+        else boxesIm.at(boost::numeric_cast<std::size_t>(boxId - realBoxCount));
+    }
+
+private:
+
+
+    void initNeighbors() {
+        int count = 0;
+        Rtree rtree_( bgi::dynamic_quadratic( boxes.size() ));
+        for (Box const& box : boxes) rtree_.insert(std::make_pair(box, count++));
+        for (Box const& box : boxesIm) rtree_.insert(std::make_pair(box, count++));
+
+        count = 0;
+        for (Box const& box : boxes) neighbor.insert(findNeighborPair(rtree_, count++));
+        for (Box const& box : boxesIm) neighbor.insert(findNeighborPair(rtree_, count++));
+    }
+
+public:
+    static
+    std::pair< Boxes, ProjectionIm > findImaginaryBoxes(Boxes const& boxesRe, Config::Periodic per) {
+        Rtree rtree_( bgi::dynamic_quadratic( boxesRe.size() ));
+        for(std::size_t i=0; i<boxesRe.size(); ++i) rtree_.insert(std::make_pair(boxesRe.at(i), i));
+
+        auto range_ = [](bool periodic) -> std::vector<int> {
+            if(periodic) return { -1, 0, 1 }; else return {0};
+        };
         Box bounds;
-        boost::geometry::convert(rtree.bounds(), bounds);
-        Point boundsSize = bounds.hi() - bounds.lo();
-        for(int k=-1; k<=1; ++k) {
-            for(int j=-1; j<=1; ++j) {
-                for(int i=-1; i<=1; ++i) {
-                    if(i == 0 and j == 0 and k == 0) continue;
-                    Point offset = boundsSize * Point(i, j, k);
-                    Box stick = sticking(bounds, offset);
-//                    rtree.qu
+        boost::geometry::convert(rtree_.bounds(), bounds);
+        Point boundsNorm = bounds.hi() - bounds.lo();
+
+        Boxes boxesIm;
+        ProjectionIm projectionIm;
+        std::size_t index = boxesRe.size();
+        for(int k : range_(per.byZ)) {
+            for(int j : range_(per.byY)) {
+                for(int i : range_(per.byX)) {
+                    if(i or j or k) {
+                        Point offset = boundsNorm * Point(i, j, k);//fix
+                        Box stick = sticking(bounds, offset);
+                        for(Value const& value : rtree_ | bgi::adaptors::queried(bgi::intersects(stick))) {
+                            boxesIm.push_back(value.first - offset);
+                            projectionIm.insert(std::make_pair(index++, value.second));
+                        }
+                    }
                 }
             }
         }
+        return std::make_pair(boxesIm, projectionIm);
     }
 
 
@@ -122,9 +166,9 @@ struct Container::Impl {
         return result;
     }
 
-    Box const& getBox(BoxId boxId) const {
-        return boxes.at(boxId);
-    }
+//    Box const& getBox(BoxId boxId) const {
+//        return boxes.at(boxId);
+//    }
 
     Component::BoxIdCollection const& getNeighbors(BoxId boxId) const {
         return neighbor.at(boxId);
@@ -153,15 +197,17 @@ struct Container::Impl {
 
 private:
 
-    Component::BoxIdCollection findNeighbor(BoxId boxId) const {
+    Component::BoxIdCollection findNeighbor(Rtree const& rtree, BoxId boxId) const {
         Component::BoxIdCollection result;
-        std::vector<Value> queryResult;
         Box const& target = getBox(boxId);
-        rtree.query(bgi::intersects(target) and not bgi::covered_by(target) , std::back_inserter(queryResult));
-        for(Impl::Value const& v : queryResult) {
+        for(Value const& v : rtree | bgi::adaptors::queried(bgi::intersects(target) and not bgi::covered_by(target))) {
             result.push_back(v.second);
         }
         return result;
+    }
+
+    std::pair<BoxId, Component::BoxIdCollection> findNeighborPair(Rtree const& rtree, BoxId boxId) const {
+        return std::make_pair(boxId, findNeighbor(rtree, boxId));
     }
 
     Component::InputExchange::Collection findInputExchange(BoxId boxId, unsigned int width) const {
@@ -233,11 +279,14 @@ private:
 //----------------------------------------------------------------------------------------------------------------------
 
 
-Container::Container(Boxes const& boxes, unsigned int borderWidth /* = 1 */) : impl(new Impl(boxes, borderWidth)) {
-    int size = impl->boxes.size();
+Container::Container(Boxes const& boxes) : Container(Config(boxes)) {}
+Container::Container(Boxes && boxes) : Container(Config(std::move(boxes))) {}       // may be move running implicitly
+
+Container::Container(Config const& config) : impl(new Impl(config)) {
+    std::size_t size = impl->boxes.size();
     impl->container.reserve(size);
-    for(int i=0; i<size; ++i) {
-        impl->container.push_back(Component(*this, i));
+    for(std::size_t i=0; i<size; ++i) {
+        impl->container.push_back(Component(*this, boost::numeric_cast<int>(i)));
     }
 }
 
