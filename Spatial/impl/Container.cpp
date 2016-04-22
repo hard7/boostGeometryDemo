@@ -30,8 +30,8 @@ namespace bgi = boost::geometry::index;
 typedef Spatial::Component::Point Point;
 typedef Spatial::Component::Box Box;
 
-BOOST_GEOMETRY_REGISTER_POINT_3D_GET_SET(Point, Point::type, boost::geometry::cs::cartesian, x, y, z, x, y, z);
-BOOST_GEOMETRY_REGISTER_BOX(Box, Point, lo(), hi());
+BOOST_GEOMETRY_REGISTER_POINT_3D_GET_SET(Point, Point::type, boost::geometry::cs::cartesian, x, y, z, x, y, z)
+BOOST_GEOMETRY_REGISTER_BOX(Box, Point, lo(), hi())
 
 namespace {
 // Define a function object converting a value_type of indexed Range into std::pair<>.
@@ -76,7 +76,6 @@ struct Container::Impl {
     _implContainer container;
     const std::vector<Box> boxes;
     std::vector<Box> boxesIm;
-    std::unique_ptr< Rtree > rtree;
     BorderWidth borderWidth;
     ProjectionIm projectionIm;
 
@@ -93,26 +92,39 @@ struct Container::Impl {
         initNeighbors();
     }
 
-    bool isRealBoxId(BoxId boxId) const { return boxId < realBoxCount; }
+    bool isRealBoxId(BoxId boxId) const {
+        if(boxId < 0) throw std::logic_error("boxId < 0");
+        return static_cast<std::size_t>(boxId) < realBoxCount;
+    }
     bool isImaginaryBoxId(BoxId boxId) const { return not isRealBoxId(boxId); }
 
     Box const& getBox(BoxId boxId) const {
         if(isRealBoxId(boxId)) return boxes.at(boost::numeric_cast<std::size_t>(boxId));
-        else boxesIm.at(boost::numeric_cast<std::size_t>(boxId - realBoxCount));
+        else return boxesIm.at(boost::numeric_cast<std::size_t>(boxId - realBoxCount));
     }
 
 private:
+    static void sanityCheck(Rtree const& rtree, Boxes const& boxes) {
+        Box common;
+        std::set<Box, Box::LexCompare> uniqueCheck;
+        for(Box const& box : boxes) {
+            if(not uniqueCheck.insert(box).second) throw std::logic_error("Fail sanityCheck (duplicate)");
+            for(Value const &v : rtree | bgi::adaptors::queried(bgi::intersects(box) and not bgi::covered_by(box))) {
+                if(bg::intersection(box, v.first, common) and common.volume() > 0) throw std::logic_error("Fail sanityCheck (intersection)");
+            }
+        }
 
+    }
 
     void initNeighbors() {
         int count = 0;
-        Rtree rtree_( bgi::dynamic_quadratic( boxes.size() ));
+        Rtree rtree_( bgi::dynamic_quadratic( boxes.size() + boxesIm.size() ));
         for (Box const& box : boxes) rtree_.insert(std::make_pair(box, count++));
         for (Box const& box : boxesIm) rtree_.insert(std::make_pair(box, count++));
 
         count = 0;
-        for (Box const& box : boxes) spatialNeighbor.insert(findSpatialNeighborPair(rtree_, count++));
-        for (Box const& box : boxesIm) spatialNeighbor.insert(findSpatialNeighborPair(rtree_, count++));
+        for (Box const& box : boxes) spatialNeighbor.insert(Impl::findSpatialNeighborPair(rtree_, box, count++));
+        for (Box const& box : boxesIm) spatialNeighbor.insert(Impl::findSpatialNeighborPair(rtree_, box, count++));
 
         BoxId boxId;
         Component::BoxIdCollection links;
@@ -132,6 +144,7 @@ public:
     std::pair< Boxes, ProjectionIm > findImaginaryBoxes(Boxes const& boxesRe, Config::Periodic per) {
         Rtree rtree_( bgi::dynamic_quadratic( boxesRe.size() ));
         for(std::size_t i=0; i<boxesRe.size(); ++i) rtree_.insert(std::make_pair(boxesRe.at(i), i));
+        sanityCheck(rtree_, boxesRe);
 
         auto range_ = [](bool periodic) -> std::vector<int> {
             if(periodic) return { -1, 0, 1 }; else return {0};
@@ -140,7 +153,7 @@ public:
         boost::geometry::convert(rtree_.bounds(), bounds);
         Point boundsNorm = bounds.hi() - bounds.lo();
 
-        Boxes boxesIm;
+        Boxes boxesIm_;
         ProjectionIm projectionIm;
         std::size_t index = boxesRe.size();
         for(int k : range_(per.byZ)) {
@@ -150,14 +163,14 @@ public:
                         Point offset = boundsNorm * Point(i, j, k);//fix
                         Box stick = sticking(bounds, offset);
                         for(Value const& value : rtree_ | bgi::adaptors::queried(bgi::intersects(stick))) {
-                            boxesIm.push_back(value.first - offset);
+                            boxesIm_.push_back(value.first - offset);
                             projectionIm.insert(std::make_pair(index++, value.second));
                         }
                     }
                 }
             }
         }
-        return std::make_pair(boxesIm, projectionIm);
+        return std::make_pair(boxesIm_, projectionIm);
     }
 
 
@@ -179,10 +192,6 @@ public:
         }
         return result;
     }
-
-//    Box const& getBox(BoxId boxId) const {
-//        return boxes.at(boxId);
-//    }
 
     Component::BoxIdCollection const& getNeighbors(BoxId boxId) const {
         return trueNeighbor.at(boxId);
@@ -223,18 +232,9 @@ private:
         }
         return result;
     }
-
-//    Component::BoxIdCollection findTrueNeighbor(BoxId boxId) {
-//        Component::BoxIdCollection result;
-//        Box target = getBox(boxId);
-//        for(Value const& v : rtree | bgi::adaptors::queried(bgi::intersects(target) and not bgi::covered_by(target))) {
-//            result.push_back(v.second);
-//        }
-//        return result;
-//    }
-
-    std::pair<BoxId, Component::BoxIdCollection> findSpatialNeighborPair(Rtree const& rtree, BoxId boxId) const {
-        return std::make_pair(boxId, findSpatialNeighbor(rtree, getBox(boxId)));
+    static
+    std::pair<BoxId, Component::BoxIdCollection> findSpatialNeighborPair(Rtree const& rtree, Box const& box, BoxId id) {
+        return std::make_pair(id, Impl::findSpatialNeighbor(rtree, box));
     }
 
     Component::InputExchange::Collection findInputExchange(BoxId boxId, unsigned int width) const {
@@ -246,7 +246,7 @@ private:
                 Component::DestinationCollection::const_iterator found;
                 found = std::find_if(std::begin(dst), std::end(dst), [boxId](Component::Destination const& d) { return boxId == d.destinationId; });
 
-                if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {found->ghost, output.donor, neighborBoxId});
+                if(found != std::end(output.destinations)) result.push_back( /*(Component::InputExchange) */{found->ghost, output.donor, neighborBoxId});
             }
         }
         return result;
@@ -304,7 +304,8 @@ private:
                 if(isRealBoxId(linkId)) dst.push_back({donor.box, linkId});
                 else dst.push_back({projectImaginaryBox(donor.box, linkId), projectionIm.at(linkId)});
             }
-            return (Component::OutputExchange) { donor.box, std::move(dst) };
+            Component::OutputExchange ex =  { donor.box, std::move(dst) };
+            return ex;
         });
 
         return result;
@@ -344,7 +345,7 @@ Component::InputExchange::Collection const& Container::getInputExchange(BoxId bo
 }
 
 Component::InputExchange::Collection const& Container::getInputExchange(BoxId boxId, unsigned int width) const {
-    impl->getInputExchange(boxId, width);
+    return impl->getInputExchange(boxId, width);
 }
 
 Component::OutputExchange::Collection const& Container::getOutputExchange(BoxId boxId) const {

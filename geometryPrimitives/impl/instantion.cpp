@@ -30,8 +30,8 @@ _SETUP(ALGO_BOX, SUPPORTED_TYPES )
 
 #include <boost/geometry/geometries/register/point.hpp>
 #include <boost/geometry/geometries/register/box.hpp>
-#define REGISTER_GEOMETRY(T) BOOST_GEOMETRY_REGISTER_POINT_3D_GET_SET(CommonCase::Point<T>, T, boost::geometry::cs::cartesian, x, y, z, x, y, z); \
-                             BOOST_GEOMETRY_REGISTER_BOX(CommonCase::Box<T>, CommonCase::Point<T>, lo(), hi());
+#define REGISTER_GEOMETRY(T) BOOST_GEOMETRY_REGISTER_POINT_3D_GET_SET(CommonCase::Point<T>, T, boost::geometry::cs::cartesian, x, y, z, x, y, z) \
+                             BOOST_GEOMETRY_REGISTER_BOX(CommonCase::Box<T>, CommonCase::Point<T>, lo(), hi())
 _SETUP(REGISTER_GEOMETRY, SUPPORTED_TYPES)
 
 #define COVERED_BY_(T) template bool BoostWrapper::covered_by<T>(T const&, T const&);

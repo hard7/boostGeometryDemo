@@ -44,6 +44,8 @@ std::ostream& operator<<(std::ostream& os, std::list<T> const& vec) {
 }
 
 #include <boost/numeric/conversion/cast.hpp>
+#include <chrono>
+#include <boost/timer.hpp>
 
 int main() {
     using Box = CommonCase::Box<int>;
@@ -72,15 +74,23 @@ int main() {
 
 //    cout << CommonCase::split(b1, b2) . size() << endl;
 
+    boost::timer t;
+
     std::vector<Box> boxes = generateBoxes();
 //            { Box(Point(0, 0 ,0), Point(10,20,30)),
 //              Box(Point(0,0,30), Point(10,20,50)),
 //              Box(Point(0,0,50), Point(10,20,80)) };
 
+    cout << "generate boxes: " << t.elapsed() << endl;
 
-    Spatial::Container spatialContainer(Spatial::Container::Config(boxes).setPeriodicByX());
+    t.restart();
+//    Spatial::Container::Config cnf(boxes); cnf.setPeriodicByX();
+    Spatial::Container spatialContainer(Spatial::Container::Config(boxes).get() .setPeriodicByX() .setPeriodicByY().setPeriodicByZ());
+//    Spatial::Container spatialContainer(cnf);
+    cout << "create spatialContainer: " << t.elapsed() << endl;
 
-    auto res = spatialContainer.getNeighbors(0);
+
+//    auto res = spatialContainer.getNeighbors(0);
 //    for(auto& val: sc.findOutputExchange(0)) {
 //        cout << val.donor << " -> " << val.destinations << endl;
 //    }
@@ -89,20 +99,18 @@ int main() {
 //        cout << val.donor << " -> " << val.destinations << endl;
 //    }
 
+    cout << "Start getOutputExchange." << endl;
+    t.restart();
+
     using Spatial::Component;
     for(Component& item : spatialContainer) {
-        if(item.getBoxId() == 0) {
-            for (Component::OutputExchange const &output : item.getOutputExchange()) {
-//                cout << output.donor << " -> " << output.destinations << endl;
-            }
-
-            for (Component::InputExchange const &input : item.getInputExchange()) {
-                cout << input.ghost << " <= " << input.donor_ << " " << input.sourceBoxId << endl;
-            }
-        }
+        item.getOutputExchange();
     }
 
-    cout << "box 2: " << spatialContainer.getBox(2) << endl;
+    std::cout << "Printing took " << t.elapsed() << " s.\n";
+
+//    cout << "Start Estimate" << endl;
+    t.restart();
 }
 
 
@@ -113,7 +121,7 @@ std::vector<Spatial::Container::Box> generateBoxes() {
     typedef Spatial::Container::Point Point;
     typedef Spatial::Container::Box Box;
     const int step = 10;
-    const int iCount = 2, jCount = 2, kCount = 1;
+    const int iCount = 10, jCount = 10, kCount = 10;
 
     std::vector<Spatial::Container::Box> result;
     for(int k=0; k<kCount; ++k) {
@@ -126,7 +134,7 @@ std::vector<Spatial::Container::Box> generateBoxes() {
         }
     }
 
-    result.push_back( { Point(iCount*step, 0, 0), Point(iCount*step+step, jCount*step, kCount*step) } );
+//    result.push_back( { Point(iCount*step, 0, 0), Point(iCount*step+step, jCount*step, kCount*step) } );
 
     return result;
 }

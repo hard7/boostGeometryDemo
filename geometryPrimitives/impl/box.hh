@@ -45,7 +45,7 @@ template <typename T> Box<T>& Box<T>::operator-=(Point<T> const& lhs) {
 template <typename T>
 bool Box<T>::LexCompare::operator()(Box<T> const &lhs, Box<T> const &rhs) const {
     typename Point<Box::type>::LexCompare lexCompare;
-    throw lexCompare(lhs.lo(), rhs.lo()) or (lhs.lo() == rhs.lo() and lexCompare(lhs.hi(), rhs.hi()));
+    return lexCompare(lhs.lo(), rhs.lo()) or (lhs.lo() == rhs.lo() and lexCompare(lhs.hi(), rhs.hi()));
 }
 
 } // namespace CommonCase

@@ -77,22 +77,22 @@ Box CommonCase::sticking(Box const& box, Point<T> const& direct) {
     else if(direct.z() < 0) result.hi().z() = result.lo().z();
 
     return result;
-};
+}
 
 
 template <class Box, typename T = typename Box::type>
 std::pair<T, T> CommonCase::getRangeX(Box const& box) {
     return std::make_pair(box.lo().x(), box.hi().x());
-};
+}
 
 template <class Box, typename T = typename Box::type>
 std::pair<T, T> CommonCase::getRangeY(Box const& box) {
     return std::make_pair(box.lo().y(), box.hi().y());
-};
+}
 
 template <class Box, typename T = typename Box::type>
 std::pair<T, T> CommonCase::getRangeZ(Box const& box) {
     return std::make_pair(box.lo().z(), box.hi().z());
-};
+}
 
 #endif //__ALGO_BOX_IMPL__

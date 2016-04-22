@@ -34,7 +34,7 @@ bool Point<T>::operator!=(Point<T> const& rhs) const {
 
 template <typename T>
 bool Point<T>::LexCompare::operator()(Point<T> const& lhs, Point<T> const& rhs) const {
-     return lhs.x() < rhs.x() or (lhs.x() == rhs.x() and lhs.y() < rhs.y() or (lhs.y() == rhs.y() and lhs.z() < rhs.z()));
+     return  lhs.x() < rhs.x() or ((lhs.x() == rhs.x() and lhs.y() < rhs.y()) or (lhs.y() == rhs.y() and lhs.z() < rhs.z()));
 }
 
 template <typename T> Point<T>& Point<T>::operator+=(Point<T> const& lhs) {

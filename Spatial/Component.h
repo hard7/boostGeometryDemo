@@ -2,7 +2,6 @@
 #define __SPATIAL_COMPONENT_H__
 
 #include "box.h"
-#include <memory>
 #include <vector>
 
 namespace Spatial {

@@ -59,6 +59,8 @@ struct Spatial::Container::Config {
 
     Config(Boxes const& boxes_) : boxes(boxes_) {}
     Config(Boxes && boxes_) : boxes(std::move(boxes_)) {}
+
+    Config& get() {return *this; }
     Config& setPeriodicByX() { periodic.byX = true; return *this; }
     Config& setPeriodicByY() { periodic.byY = true; return *this; }
     Config& setPeriodicByZ() { periodic.byZ = true; return *this; }
