@@ -16,6 +16,8 @@
 
 #include <list>
 #include <tuple>
+#include <set>
+#include <unordered_set>
 
 #include "stream/box.h"                                 //FIXME DELETE
 #include "stream/point.h"                                 //FIXME DELETE
@@ -82,7 +84,7 @@ struct Container::Impl {
 
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::OutputExchange::Collection> cachedOutput;
     mutable std::map<std::pair<BoxId, BorderWidth>, Component::InputExchange::Collection> cachedInput;
-    std::map<BoxId, Component::BoxIdCollection> neighbor;
+    std::map<BoxId, Component::BoxIdCollection> spatialNeighbor, trueNeighbor;
 
     Impl(Config const& config) : boxes(std::move(config.boxes)) {
         realBoxCount = boxes.size();
@@ -109,8 +111,20 @@ private:
         for (Box const& box : boxesIm) rtree_.insert(std::make_pair(box, count++));
 
         count = 0;
-        for (Box const& box : boxes) neighbor.insert(findNeighborPair(rtree_, count++));
-        for (Box const& box : boxesIm) neighbor.insert(findNeighborPair(rtree_, count++));
+        for (Box const& box : boxes) spatialNeighbor.insert(findSpatialNeighborPair(rtree_, count++));
+        for (Box const& box : boxesIm) spatialNeighbor.insert(findSpatialNeighborPair(rtree_, count++));
+
+        BoxId boxId;
+        Component::BoxIdCollection links;
+        for(auto const& neighbor : spatialNeighbor) {
+            std::tie(boxId, links) = neighbor;
+            if(isImaginaryBoxId(boxId)) continue;
+            std::unordered_set<BoxId> unique_;
+            std::transform(std::begin(links), std::end(links), std::inserter(unique_, std::end(unique_)), [this](BoxId id) {
+                return isRealBoxId(id) ? id : projectionIm.at(id);
+            });
+            trueNeighbor.insert(std::make_pair(boxId, Component::BoxIdCollection(std::begin(unique_), std::end(unique_))));
+        }
     }
 
 public:
@@ -171,8 +185,13 @@ public:
 //    }
 
     Component::BoxIdCollection const& getNeighbors(BoxId boxId) const {
-        return neighbor.at(boxId);
+        return trueNeighbor.at(boxId);
     }
+
+    Component::BoxIdCollection const& getSpatialNeighbors(BoxId boxId) const {
+        return spatialNeighbor.at(boxId);
+    }
+
 
     Component::InputExchange::Collection const& getInputExchange(BoxId boxId, unsigned int width) const {
         auto key = std::make_pair(boxId, width);
@@ -197,25 +216,37 @@ public:
 
 private:
 
-    Component::BoxIdCollection findNeighbor(Rtree const& rtree, BoxId boxId) const {
+    static Component::BoxIdCollection findSpatialNeighbor(Rtree const &rtree, Box const &target) {
         Component::BoxIdCollection result;
-        Box const& target = getBox(boxId);
         for(Value const& v : rtree | bgi::adaptors::queried(bgi::intersects(target) and not bgi::covered_by(target))) {
             result.push_back(v.second);
         }
         return result;
     }
 
-    std::pair<BoxId, Component::BoxIdCollection> findNeighborPair(Rtree const& rtree, BoxId boxId) const {
-        return std::make_pair(boxId, findNeighbor(rtree, boxId));
+//    Component::BoxIdCollection findTrueNeighbor(BoxId boxId) {
+//        Component::BoxIdCollection result;
+//        Box target = getBox(boxId);
+//        for(Value const& v : rtree | bgi::adaptors::queried(bgi::intersects(target) and not bgi::covered_by(target))) {
+//            result.push_back(v.second);
+//        }
+//        return result;
+//    }
+
+    std::pair<BoxId, Component::BoxIdCollection> findSpatialNeighborPair(Rtree const& rtree, BoxId boxId) const {
+        return std::make_pair(boxId, findSpatialNeighbor(rtree, getBox(boxId)));
     }
 
     Component::InputExchange::Collection findInputExchange(BoxId boxId, unsigned int width) const {
         Component::InputExchange::Collection result;
         for(BoxId neighborBoxId : getNeighbors(boxId)) {
             for(Component::OutputExchange const& output : getOutputExchange(neighborBoxId, width)) {
-                Component::BoxIdCollection::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
-                if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {output.donor, output.donor, neighborBoxId});
+//                Component::BoxIdCollection::const_iterator found = std::find(std::begin(output.destinations), std::end(output.destinations), boxId);
+                Component::DestinationCollection const& dst = output.destinations;
+                Component::DestinationCollection::const_iterator found;
+                found = std::find_if(std::begin(dst), std::end(dst), [boxId](Component::Destination const& d) { return boxId == d.destinationId; });
+
+                if(found != std::end(output.destinations)) result.push_back((Component::InputExchange) {found->ghost, output.donor, neighborBoxId});
             }
         }
         return result;
@@ -229,7 +260,7 @@ private:
         Component::OutputExchange::Collection result;
 
         std::list<Donor> donors;
-        for(BoxId neighborBoxId : getNeighbors(boxId)) {
+        for(BoxId neighborBoxId : getSpatialNeighbors(boxId)) {
             Box neighbor = getBox(neighborBoxId);
             Box expandedNeighbor = Impl::expand(neighbor, width);
             Box donorBox = Impl::trueIntersection(current, expandedNeighbor);
@@ -264,16 +295,28 @@ private:
             }
         }
 
+        assert(isRealBoxId(boxId));
         result.reserve(donors.size());
-        std::transform(begin(donors), end(donors), std::back_inserter(result),
-                       [](Donor const& d) { return (Component::OutputExchange) { d.box, d.box, {begin(d.links), end(d.links) } }; } );
+        std::transform(begin(donors), end(donors), std::back_inserter(result), [this](Donor const& donor) {
+            Component::DestinationCollection dst;
+            dst.reserve(donor.links.size());
+            for(BoxId linkId : donor.links) {
+                if(isRealBoxId(linkId)) dst.push_back({donor.box, linkId});
+                else dst.push_back({projectImaginaryBox(donor.box, linkId), projectionIm.at(linkId)});
+            }
+            return (Component::OutputExchange) { donor.box, std::move(dst) };
+        });
 
         return result;
     }
 
-
-
-
+    private:
+        Box projectImaginaryBox(Box const& target, BoxId imId) const {
+            BoxId reId = projectionIm.at(imId);
+            Box imBox = getBox(imId), reBox = getBox(reId);
+            Point offset  = reBox.lo() - imBox.lo();
+            return target + offset;
+        }
 };
 
 //----------------------------------------------------------------------------------------------------------------------

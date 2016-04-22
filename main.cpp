@@ -23,9 +23,13 @@ using std::endl;
 
 
 
-
-
 std::vector<Spatial::Container::Box> generateBoxes();
+
+
+std::ostream& operator<<(std::ostream& os, Spatial::Component::Destination const& dest) {
+    os << "(" << dest.destinationId << " & " <<  dest.ghost << ")";
+    return os;
+}
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, std::vector<T> const& vec) {
@@ -87,11 +91,18 @@ int main() {
 
     using Spatial::Component;
     for(Component& item : spatialContainer) {
-        for(Component::OutputExchange const& output : item.getOutputExchange()) {
-            cout << output.donor << " -> " << output.destinations << endl;
+        if(item.getBoxId() == 0) {
+            for (Component::OutputExchange const &output : item.getOutputExchange()) {
+//                cout << output.donor << " -> " << output.destinations << endl;
+            }
+
+            for (Component::InputExchange const &input : item.getInputExchange()) {
+                cout << input.ghost << " <= " << input.donor_ << " " << input.sourceBoxId << endl;
+            }
         }
-        break;
     }
+
+    cout << "box 2: " << spatialContainer.getBox(2) << endl;
 }
 
 

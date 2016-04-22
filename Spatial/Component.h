@@ -16,16 +16,19 @@ public:
     typedef int BoxId;
     typedef std::vector<BoxId> BoxIdCollection;
 
+    struct Destination { Box ghost; BoxId destinationId; };
+    typedef std::vector<Destination> DestinationCollection;
+
     struct InputExchange {
         typedef std::vector<InputExchange> Collection;
         Box ghost, donor_;
-        BoxId source;
+        BoxId sourceBoxId;
     };
 
     struct OutputExchange {
         typedef std::vector<OutputExchange> Collection;
-        Box donor, ghost_;
-        BoxIdCollection destinations;
+        Box donor /*, ghost_*/ ;
+        DestinationCollection /*BoxIdCollection*/ destinations;
     };
 
     Component(Container& container, BoxId boxId);
